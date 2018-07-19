@@ -1,0 +1,7 @@
+include LICENSE.rst
+include README.rst
+
+include requirements.txt
+
+recursive-include silorider *
+recursive-include tests *

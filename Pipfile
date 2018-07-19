@@ -1,0 +1,22 @@
+[[source]]
+
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+
+[packages]
+
+"mf2py" = "*"
+"mastodon.py" = "*"
+coloredlogs = "*"
+"mf2util" = "*"
+python-dateutil = "*"
+python-twitter = "*"
+
+
+[dev-packages]
+
+pytest = "*"
+setuptools-scm = "*"
+pytest-runner = "*"
