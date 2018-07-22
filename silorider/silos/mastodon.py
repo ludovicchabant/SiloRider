@@ -141,7 +141,8 @@ class MastodonSilo(Silo):
             tmpfile, headers = urllib.request.urlretrieve(url)
             logger.debug("Using temporary file: %s" % tmpfile)
 
-            return self.client.media_post(tmpfile, mt)
+            with open(tmpfile, 'rb') as tmpfp:
+                return self.client.media_post(tmpfp, mt)
         finally:
             logger.debug("Cleaning up.")
             urllib.request.urlcleanup()
