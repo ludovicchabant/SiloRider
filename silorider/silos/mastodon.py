@@ -1,9 +1,7 @@
-import urllib.request
 import getpass
 import logging
-import mimetypes
 import mastodon
-from .base import Silo
+from .base import Silo, upload_silo_media
 
 
 logger = logging.getLogger(__name__)
@@ -111,38 +109,18 @@ class MastodonSilo(Silo):
             api_base_url=self.base_url)
 
     def postEntry(self, entry, ctx):
-        toottxt = self.formatEntry(entry, limit=400)
+        toottxt = self.formatEntry(entry, limit=500)
         if not toottxt:
             raise Exception("Can't find any content to use for the toot!")
 
         visibility = self.getConfigItem('toot_visibility', fallback='public')
 
-        media_ids = None
-        photo_urls = entry.get('photo', [], force_list=True)
-        if photo_urls:
-            media_ids = []
-            for pu in photo_urls:
-                media_ids.append(self._mediaPostFromUrl(pu))
+        media_ids = upload_silo_media(entry, 'photo', self._media_callback)
 
         logger.debug("Posting toot: %s" % toottxt)
         self.client.status_post(toottxt, media_ids=media_ids,
                                 visibility=visibility)
 
-    def _mediaPostFromUrl(self, url):
-        logger.debug("Downloading %s for upload to Mastodon..." % url)
-        mt, enc = mimetypes.guess_type(url)
-        if not mt:
-            mt = mimetypes.common_types['.jpg']
-
-        ext = mimetypes.guess_extension(mt) or '.jpg'
-        logger.debug("Got MIME type and extension: %s %s" % (mt, ext))
-
-        try:
-            tmpfile, headers = urllib.request.urlretrieve(url)
-            logger.debug("Using temporary file: %s" % tmpfile)
-
-            with open(tmpfile, 'rb') as tmpfp:
-                return self.client.media_post(tmpfp, mt)
-        finally:
-            logger.debug("Cleaning up.")
-            urllib.request.urlcleanup()
+    def _media_callback(self, tmpfile, mt):
+        with open(tmpfile, 'rb') as tmpfp:
+            return self.client.media_post(tmpfp, mt)

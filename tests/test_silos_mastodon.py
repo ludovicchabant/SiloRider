@@ -1,4 +1,5 @@
 import pytest
+from .mockutil import mock_urllib
 
 
 def test_one_article(cli, feedutil, mastmock):
@@ -49,13 +50,15 @@ def test_one_micropost_with_one_photo(cli, feedutil, mastmock, monkeypatch):
     mastmock.installTokens(cli, 'test')
 
     with monkeypatch.context() as m:
-        import urllib.request
-        m.setattr(urllib.request, 'urlretrieve', _patched_urlretrieve)
-        m.setattr(urllib.request, 'urlcleanup', _patched_urlcleanup)
+        import silorider.silos.mastodon
+        mock_urllib(m)
+        m.setattr(silorider.silos.mastodon.MastodonSilo, '_media_callback',
+                  _patched_media_callback)
         ctx, _ = cli.run('process', feed)
+
     assert ctx.cache.wasPosted('test', '/01234.html')
     media = ctx.silos[0].client.media[0]
-    assert media == ('/retrived/fullimg.jpg', 'image/jpeg', 1)
+    assert media == ('/retrieved/fullimg.jpg', 'image/jpeg', 1)
     toot = ctx.silos[0].client.toots[0]
     assert toot == ("This is a quick photo update.", [1], 'public')
 
@@ -74,25 +77,23 @@ def test_one_micropost_with_two_photos(cli, feedutil, mastmock, monkeypatch):
     mastmock.installTokens(cli, 'test')
 
     with monkeypatch.context() as m:
-        import urllib.request
-        m.setattr(urllib.request, 'urlretrieve', _patched_urlretrieve)
-        m.setattr(urllib.request, 'urlcleanup', _patched_urlcleanup)
+        import silorider.silos.mastodon
+        mock_urllib(m)
+        m.setattr(silorider.silos.mastodon.MastodonSilo, '_media_callback',
+                  _patched_media_callback)
         ctx, _ = cli.run('process', feed)
+
     assert ctx.cache.wasPosted('test', '/01234.html')
     media = ctx.silos[0].client.media[0]
-    assert media == ('/retrived/fullimg1.jpg', 'image/jpeg', 1)
+    assert media == ('/retrieved/fullimg1.jpg', 'image/jpeg', 1)
     media = ctx.silos[0].client.media[1]
-    assert media == ('/retrived/fullimg2.jpg', 'image/jpeg', 2)
+    assert media == ('/retrieved/fullimg2.jpg', 'image/jpeg', 2)
     toot = ctx.silos[0].client.toots[0]
     assert toot == ("This is a photo update with 2 photos.", [1, 2], 'public')
 
 
-def _patched_urlretrieve(url):
-    return ('/retrived/' + url.lstrip('/'), None)
-
-
-def _patched_urlcleanup():
-    pass
+def _patched_media_callback(self, tmpfile, mt):
+    return self.client.media_post(tmpfile, mt)
 
 
 @pytest.fixture(scope='session')

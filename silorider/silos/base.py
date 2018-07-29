@@ -1,4 +1,6 @@
+import urllib.request
 import logging
+import mimetypes
 from ..format import format_entry
 
 
@@ -81,7 +83,8 @@ class Silo:
 def load_silos(config, cache):
     from .print import PrintSilo
     from .mastodon import MastodonSilo
-    silo_types = [PrintSilo, MastodonSilo]
+    from .twitter import TwitterSilo
+    silo_types = [PrintSilo, MastodonSilo, TwitterSilo]
     silo_dict = dict([(s.SILO_TYPE, s) for s in silo_types])
 
     silos = []
@@ -102,3 +105,33 @@ def load_silos(config, cache):
         silo = silo_class(cctx)
         silos.append(silo)
     return silos
+
+
+def upload_silo_media(entry, propname, callback):
+    media_ids = None
+    urls = entry.get(propname, [], force_list=True)
+    if urls:
+        media_ids = []
+        for url in urls:
+            mid = _do_upload_silo_media(url, callback)
+            if mid is not None:
+                media_ids.append(mid)
+    return media_ids
+
+
+def _do_upload_silo_media(url, callback):
+    logger.debug("Downloading %s for upload to silo..." % url)
+    mt, enc = mimetypes.guess_type(url)
+    if not mt:
+        mt = mimetypes.common_types['.jpg']
+
+    ext = mimetypes.guess_extension(mt) or '.jpg'
+    logger.debug("Got MIME type and extension: %s %s" % (mt, ext))
+
+    try:
+        tmpfile, headers = urllib.request.urlretrieve(url)
+        logger.debug("Using temporary file: %s" % tmpfile)
+        return callback(tmpfile, mt)
+    finally:
+        logger.debug("Cleaning up.")
+        urllib.request.urlcleanup()
