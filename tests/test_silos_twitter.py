@@ -1,5 +1,4 @@
 import pytest
-from .mockutil import mock_urllib
 
 
 def test_one_article(cli, feedutil, tweetmock):
@@ -18,7 +17,7 @@ def test_one_article(cli, feedutil, tweetmock):
     ctx, _ = cli.run('process', feed)
     assert ctx.cache.wasPosted('test', 'https://example.org/a-new-article')
     toot = ctx.silos[0].client.tweets[0]
-    assert toot == ('A new article https://example.org/a-new-article', None)
+    assert toot == ('A new article https://example.org/a-new-article', [])
 
 
 def test_one_micropost(cli, feedutil, tweetmock):
@@ -33,7 +32,7 @@ def test_one_micropost(cli, feedutil, tweetmock):
     ctx, _ = cli.run('process', feed)
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.tweets[0]
-    assert toot == ("This is a quick update.", None)
+    assert toot == ("This is a quick update.", [])
 
 
 def test_one_micropost_with_one_photo(cli, feedutil, tweetmock, monkeypatch):
@@ -48,18 +47,11 @@ def test_one_micropost_with_one_photo(cli, feedutil, tweetmock, monkeypatch):
     cli.appendSiloConfig('test', 'twitter', url='/blah')
     tweetmock.installTokens(cli, 'test')
 
-    with monkeypatch.context() as m:
-        import silorider.silos.twitter
-        mock_urllib(m)
-        m.setattr(silorider.silos.twitter.TwitterSilo, '_media_callback',
-                  _patched_media_callback)
-        ctx, _ = cli.run('process', feed)
+    ctx, _ = cli.run('process', feed)
 
     assert ctx.cache.wasPosted('test', '/01234.html')
-    media = ctx.silos[0].client.media[0]
-    assert media == ('/retrieved/fullimg.jpg', 1)
     toot = ctx.silos[0].client.tweets[0]
-    assert toot == ("This is a quick photo update.", [1])
+    assert toot == ("This is a quick photo update.", ['/fullimg.jpg'])
 
 
 def test_one_micropost_with_two_photos(cli, feedutil, tweetmock, monkeypatch):
@@ -75,24 +67,12 @@ def test_one_micropost_with_two_photos(cli, feedutil, tweetmock, monkeypatch):
     cli.appendSiloConfig('test', 'twitter', url='/blah')
     tweetmock.installTokens(cli, 'test')
 
-    with monkeypatch.context() as m:
-        import silorider.silos.twitter
-        mock_urllib(m)
-        m.setattr(silorider.silos.twitter.TwitterSilo, '_media_callback',
-                  _patched_media_callback)
-        ctx, _ = cli.run('process', feed)
+    ctx, _ = cli.run('process', feed)
 
     assert ctx.cache.wasPosted('test', '/01234.html')
-    media = ctx.silos[0].client.media[0]
-    assert media == ('/retrieved/fullimg1.jpg', 1)
-    media = ctx.silos[0].client.media[1]
-    assert media == ('/retrieved/fullimg2.jpg', 2)
     toot = ctx.silos[0].client.tweets[0]
-    assert toot == ("This is a photo update with 2 photos.", [1, 2])
-
-
-def _patched_media_callback(self, tmpfile, mt):
-    return self.client.UploadMediaChunked(tmpfile)
+    assert toot == ("This is a photo update with 2 photos.",
+                    ['/fullimg1.jpg', '/fullimg2.jpg'])
 
 
 @pytest.fixture(scope='session')
@@ -111,17 +91,9 @@ class TwitterMock:
         assert access_token_secret == 'TEST_ACCESS_SECRET'
 
         self.tweets = []
-        self.media = []
-        self.next_mid = 1
 
     def PostUpdate(self, tweet, media=None):
         self.tweets.append((tweet, media))
-
-    def UploadMediaChunked(self, filename):
-        mid = self.next_mid
-        self.next_mid += 1
-        self.media.append((filename, mid))
-        return mid
 
 
 class TwitterMockUtil:

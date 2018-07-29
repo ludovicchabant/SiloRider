@@ -70,11 +70,6 @@ class TwitterSilo(Silo):
         if not tweettxt:
             raise Exception("Can't find any content to use for the tweet!")
 
-        media_ids = upload_silo_media(entry, 'photo', self._media_callback)
-
         logger.debug("Posting tweet: %s" % tweettxt)
-        self.client.PostUpdate(tweettxt, media=media_ids)
-
-    def _media_callback(self, tmpfile, mt):
-        with open(tmpfile, 'rb') as tmpfp:
-            return self.client.UploadMediaChunked(tmpfp)
+        media_urls = entry.get('photo', [], force_list=True)
+        self.client.PostUpdate(tweettxt, media=media_urls)
