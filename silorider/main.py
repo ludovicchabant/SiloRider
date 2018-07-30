@@ -42,14 +42,13 @@ def _setup_auth(parser):
 
 def _setup_process(parser):
     def _run(ctx):
-        from .commands.process import process_url
-        for url in ctx.args.site_url:
-            process_url(url, ctx)
+        from .commands.process import process_urls
+        process_urls(ctx)
 
     parser.add_argument(
-        'site_url',
+        '-u', '--url',
         action='append',
-        help="URL of the website to read from.")
+        help="Only parse the given URL name(s).")
     parser.add_argument(
         '-s', '--silo',
         action='append',
@@ -68,17 +67,16 @@ def _setup_process(parser):
 def _setup_populate(parser):
     def _run(ctx):
         from .commands.utils import populate_cache
-        for url in ctx.args.site_url:
-            populate_cache(url, ctx)
+        populate_cache(ctx)
 
     parser.add_argument(
-        'site_url',
+        '-u', '--url',
         action='append',
-        help="URL of the website to read from.")
+        help="Only populate from the given URL name(s).")
     parser.add_argument(
         '-s', '--silo',
         action='append',
-        help="Which silo to populate.")
+        help="Only populate the given silo(s).")
     parser.add_argument(
         '--until',
         help="The date until which to populate the cache (included).")
@@ -158,6 +156,10 @@ def _unsafe_main(args=None):
     from .silos.base import has_any_silo
     if not has_any_silo(config):
         logger.warning("No silos defined in the configuration file. "
+                       "Nothing to do!")
+        return
+    if not config.has_section('urls') or not config.items('urls'):
+        logger.warning("No URLs defined in the configuration file. "
                        "Nothing to do!")
         return
 

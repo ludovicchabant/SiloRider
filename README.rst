@@ -27,31 +27,45 @@ Right now, the following silos are supported:
 Quickstart
 ----------
 
-SiloRider will need to read a configuration file in `INI`_ format. The minimum requirement is to define at least one "silo" using a ``silo:<name>`` section::
+SiloRider will need to read a configuration file in `INI`_ format. The minimum
+requirement is to define at least one "silo" using a ``silo:<name>`` section,
+and to specify the url to one of your personal websites::
 
     [silo:my_mastodon]
     type: mastodon
     url: https://mastodon.social
 
-This defines one Mastodon silo to which you want to post your entries.
+    [urls]
+    my_blog: https://your.website.com
+
+This defines one Mastodon silo to which you want to cross-post entries from
+your blog at ``your.website.com``.
 
 You can then run::
 
     silorider auth my_mastodon 
 
-This command will authenticate your Mastodon account and provide SiloRider with the permission to post to your timeline. The authorization tokens are stored in a cache file that defaults to ``silorider.db``, next to the configuration file. Later, this cache will also contain the list of entries already posted to each silo.
+This command will authenticate your Mastodon account and provide SiloRider with
+the permission to post to your timeline. The authorization tokens are stored in
+a cache file that defaults to ``silorider.db``, next to the configuration file.
+Later, this cache will also contain the list of entries already posted to each
+silo.
 
 Once authenticated, you can run::
 
-    silorider populate https://yourwebsite
+    silorider populate
 
-This will populate the cache with the existing entries, since you probably don't want the first run of SiloRider to cross-post your last dozen or so entries in one go.
+This will populate the cache with the existing entries, since you probably
+don't want the first run of SiloRider to cross-post your last dozen or so
+entries in one go.
 
 Later, when you post something new, you can then run::
 
-    silorider process https://yourwebsite
+    silorider process
 
-This will pick up the new entries and post them to Mastodon. You can run this command again regularly... if there's something new, SiloRider will cross-post it to the configured silos. If not, it will just exit.
+This will pick up the new entries and post them to Mastodon. You can run this
+command again regularly... if there's something new, SiloRider will cross-post
+it to the configured silos. If not, it will just exit.
 
 
 .. _POSSE: https://indieweb.org/POSSE

@@ -1,5 +1,5 @@
 import logging
-from .utils import get_named_silos
+from .utils import get_named_silos, get_named_urls
 from ..silos.base import SiloPostingContext
 from ..parse import parse_url
 
@@ -7,9 +7,11 @@ from ..parse import parse_url
 logger = logging.getLogger(__name__)
 
 
-def process_url(url, ctx):
-    p = Processor(ctx, url)
-    p.process()
+def process_urls(ctx):
+    for url in get_named_urls(ctx.config, ctx.args.url):
+        logger.info("Processing %s" % url)
+        p = Processor(ctx, url)
+        p.process()
 
 
 class Processor:

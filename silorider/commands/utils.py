@@ -5,6 +5,17 @@ from ..parse import parse_mf2
 logger = logging.getLogger(__name__)
 
 
+def get_named_urls(config, names):
+    named_urls = None
+    if config.has_section('urls'):
+        named_urls = config.items('urls')
+    if not names:
+        return [url for (_, url) in named_urls]
+
+    return [url for (name, url) in named_urls
+            if name in names]
+
+
 def get_named_silos(silos, names):
     if not names:
         return silos
@@ -21,7 +32,14 @@ def get_named_silos(silos, names):
     return res
 
 
-def populate_cache(url, ctx):
+def populate_cache(ctx):
+    urls = get_named_urls(ctx.config, ctx.args.url)
+    for url in urls:
+        logger.info("Caching entries from %s" % url)
+        _populate_cache_for_url(url, ctx)
+
+
+def _populate_cache_for_url(url, ctx):
     import mf2util
     import dateutil.parser
 
