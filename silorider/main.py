@@ -23,7 +23,7 @@ def _setup_auth(parser):
 
     parser.add_argument(
         'silo',
-        nargs='+',
+        action='append',
         help=("The name of the silo to authenticate. "
               "Use 'all' to authenticate all declared silos."))
     parser.add_argument(
@@ -47,11 +47,11 @@ def _setup_process(parser):
 
     parser.add_argument(
         'site_url',
-        nargs='+',
+        action='append',
         help="URL of the website to read from.")
     parser.add_argument(
         '-s', '--silo',
-        nargs='*',
+        action='append',
         help="Only use the given silo(s).")
     parser.add_argument(
         '--no-cache',
@@ -72,11 +72,11 @@ def _setup_populate(parser):
 
     parser.add_argument(
         'site_url',
-        nargs='+',
+        action='append',
         help="URL of the website to read from.")
     parser.add_argument(
         '-s', '--silo',
-        nargs='*',
+        action='append',
         help="Which silo to populate.")
     parser.add_argument(
         '--until',
