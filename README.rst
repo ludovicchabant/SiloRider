@@ -19,7 +19,8 @@ Supported Silos
 
 Right now, the following silos are supported:
 
-- `Mastodon`_: an open, federated microblogging service.
+- `Mastodon`_: an open, federated social network and microblogging service.
+- `Twitter`_: a proprietary social network and microblogging service.
 - Print: a debug silo that just prints entries in the console.
 
 
@@ -56,5 +57,6 @@ This will pick up the new entries and post them to Mastodon. You can run this co
 .. _POSSE: https://indieweb.org/POSSE
 .. _Microformats: http://microformats.org/
 .. _Mastodon: https://joinmastodon.org/
+.. _Twitter: https://twitter.com/
 .. _INI: https://en.wikipedia.org/wiki/INI_file
 
