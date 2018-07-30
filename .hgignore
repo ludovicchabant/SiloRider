@@ -6,4 +6,5 @@ syntax: glob
 __pycache__
 build
 dist
+silorider/version.py
 
