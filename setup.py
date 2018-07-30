@@ -29,7 +29,7 @@ setup_requires = [
 
 
 setup(
-    name='silorider',
+    name='SiloRider',
     use_scm_version={'write_to': 'silorider/version.py'},
     description=("Scans a website's microformats and cross-posts content "
                  "to 'silo' services."),
