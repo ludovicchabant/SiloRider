@@ -80,6 +80,14 @@ class Silo:
         pass
 
 
+def _get_silo_section_names(config):
+    return [sn for sn in config.sections() if sn.startswith('silo:')]
+
+
+def has_any_silo(config):
+    return bool(_get_silo_section_names(config))
+
+
 def load_silos(config, cache):
     from .print import PrintSilo
     from .mastodon import MastodonSilo
@@ -88,7 +96,7 @@ def load_silos(config, cache):
     silo_dict = dict([(s.SILO_TYPE, s) for s in silo_types])
 
     silos = []
-    sec_names = [sn for sn in config.sections() if sn.startswith('silo:')]
+    sec_names = _get_silo_section_names(config)
     for sec_name in sec_names:
         silo_name = sec_name[5:]
         sec_items = dict(config.items(sec_name))

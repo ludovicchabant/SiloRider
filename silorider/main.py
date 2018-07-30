@@ -155,6 +155,12 @@ def _unsafe_main(args=None):
         config_paths.append(args.config)
     config.read(config_paths)
 
+    from .silos.base import has_any_silo
+    if not has_any_silo(config):
+        logger.warning("No silos defined in the configuration file. "
+                       "Nothing to do!")
+        return
+
     logger.debug("Initializing cache.")
     from .cache.base import load_cache
     cfg_dir = os.path.dirname(args.config) if args.config else None
@@ -163,10 +169,6 @@ def _unsafe_main(args=None):
     logger.debug("Initializing silo riders.")
     from .silos.base import load_silos
     silos = load_silos(config, cache)
-    if not silos:
-        logger.warning("No silos defined in the configuration file. "
-                       "Nothing to do!")
-        return
 
     ctx = ExecutionContext(args, config, cache, silos)
 
