@@ -1,3 +1,4 @@
+import os
 import os.path
 import logging
 import argparse
@@ -143,8 +144,13 @@ def _unsafe_main(args=None):
         return
 
     logger.debug("Loading configuration.")
+    xdg_config_home = os.getenv('XDG_CONFIG_HOME',
+                                os.path.expanduser('~/.config'))
     config = configparser.ConfigParser(interpolation=None)
-    config_paths = [os.path.join(os.path.dirname(__file__), 'default.cfg')]
+    config_paths = [
+        os.path.join(os.path.dirname(__file__), 'default.cfg'),
+        os.path.join(xdg_config_home, 'silorider/silorider.cfg')
+    ]
     if args.config:
         config_paths.append(args.config)
     config.read(config_paths)
