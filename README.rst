@@ -24,6 +24,23 @@ Right now, the following silos are supported:
 - Print: a debug silo that just prints entries in the console.
 
 
+Installation
+------------
+
+You can install SiloRider like any other Python tool::
+
+  pip install silorider
+
+You can then check it installed correctly with::
+
+  silorider -h
+
+You can also install from source by cloning the Git or Mercurial repository and
+running::
+
+  pip install -e /path/to/silorider/repo
+
+
 Quickstart
 ----------
 
