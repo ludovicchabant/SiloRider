@@ -1,5 +1,5 @@
 import pytest
-from silorider.format import format_entry
+from silorider.format import format_entry, strip_html
 
 
 test_url = 'https://example.org/article'
@@ -11,10 +11,42 @@ class TestEntry:
 
 def _make_test_entry(best_name, is_micropost):
     entry = TestEntry()
-    entry.best_name = best_name
+    entry.get = lambda n: best_name
     entry.is_micropost = is_micropost
     entry.url = test_url
     return entry
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("<p>Something</p>",
+     "Something"),
+    ("<p>Something with <em>emphasis</em> in it</p>",
+     "Something with emphasis in it"),
+    ("<p>Something with <a href=\"http://example.org/blah\">a link</a>",
+     "Something with a link http://example.org/blah"),
+    ("<p>Something with a link <a href=\"http://example.org/blah\">http://example.org</a>",  # NOQA
+     "Something with a link http://example.org/blah"),
+    ("<p>Something with <a href=\"http://example.org/first\">one link here</a> and <a href=\"http://example.org/second\">another there</a>...</p>",  # NOQA
+     "Something with one link here http://example.org/first and another there http://example.org/second...")  # NOQA
+])
+def test_strip_html(text, expected):
+    actual = strip_html(text)
+    assert actual == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("<p>Something with <a href=\"http://example.org/blah\">a link</a>",
+     "Something with a link\nhttp://example.org/blah"),
+    ("<p>Something with a link <a href=\"http://example.org/blah\">http://example.org</a>",  # NOQA
+     "Something with a link http://example.org/blah"),
+    ("<p>Something with <a href=\"http://example.org/first\">one link here</a> and <a href=\"http://example.org/second\">another there</a>...</p>",  # NOQA
+     "Something with one link here and another there...\nhttp://example.org/first\nhttp://example.org/second")  # NOQA
+])
+def test_strip_html_with_bottom_urls(text, expected):
+    actual = strip_html(text, inline_urls=False)
+    print(actual)
+    print(expected)
+    assert actual == expected
 
 
 @pytest.mark.parametrize("title, limit, add_url, expected", [

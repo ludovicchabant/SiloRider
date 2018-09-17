@@ -47,6 +47,7 @@ class CliRunner:
 [cache]
 uri=memory://for_test
 """
+        self._feedcfg = []
         self._pre_hooks = []
         self._cleanup = []
 
@@ -70,6 +71,14 @@ uri=memory://for_test
         self._cfgtxt += cfgtxt
         return self
 
+    def appendFeedConfig(self, feed_name, feed_url):
+        self._feedcfg.append((feed_name, feed_url))
+        return self
+
+    def setFeedConfig(self, feed_name, feed_url):
+        self._feedcfg = []
+        return self.appendFeedConfig(feed_name, feed_url)
+
     def appendSiloConfig(self, silo_name, silo_type, **options):
         cfgtxt = '[silo:%s]\n' % silo_name
         cfgtxt += 'type=%s\n' % silo_type
@@ -83,11 +92,16 @@ uri=memory://for_test
 
     def run(self, *args):
         pre_args = []
-        if self._cfgtxt:
+        if self._cfgtxt or self._feedcfg:
+            cfgtxt = self._cfgtxt
+            cfgtxt += '\n\n[urls]\n'
+            for n, u in self._feedcfg:
+                cfgtxt += '%s=%s\n' % (n, u)
+
             tmpfd, tmpcfg = tempfile.mkstemp()
             print("Creating temporary configuration file: %s" % tmpcfg)
             with os.fdopen(tmpfd, 'w') as tmpfp:
-                tmpfp.write(self._cfgtxt)
+                tmpfp.write(cfgtxt)
             self._cleanup.append(tmpcfg)
             pre_args = ['-c', tmpcfg]
 
@@ -124,7 +138,10 @@ uri=memory://for_test
 
             print("Cleaning %d temporary files." % len(self._cleanup))
             for tmpname in self._cleanup:
-                os.remove(tmpname)
+                try:
+                    os.remove(tmpname)
+                except FileNotFoundError:
+                    pass
 
         return main_ctx, main_res
 

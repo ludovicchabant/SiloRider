@@ -13,9 +13,10 @@ feed1 = """
 
 
 def test_populate(cli):
-    cli.appendSiloConfig('test', 'print', items='name')
     feed = cli.createTempFeed(feed1)
-    ctx, _ = cli.run('populate', feed, '-s', 'test')
+    cli.appendSiloConfig('test', 'print', items='name')
+    cli.setFeedConfig('feed', feed)
+    ctx, _ = cli.run('populate', '-s', 'test')
     assert ctx.cache.wasPosted('test', 'https://example.org/a-new-article')
 
 
@@ -40,9 +41,10 @@ feed2 = """
 
 
 def test_populate_until(cli):
-    cli.appendSiloConfig('test', 'print', items='name')
     feed = cli.createTempFeed(feed2)
-    ctx, _ = cli.run('populate', feed, '-s', 'test', '--until', '2018-01-08')
+    cli.appendSiloConfig('test', 'print', items='name')
+    cli.setFeedConfig('feed', feed)
+    ctx, _ = cli.run('populate', '-s', 'test', '--until', '2018-01-08')
     assert ctx.cache.wasPosted('test', 'https://example.org/first-article')
     assert ctx.cache.wasPosted('test', 'https://example.org/second-article')
     assert not ctx.cache.wasPosted('test', 'https://example.org/third-article')

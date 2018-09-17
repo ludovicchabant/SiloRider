@@ -75,16 +75,6 @@ class Entry:
     def html_element(self):
         return self._bs_obj
 
-    @property
-    def best_name(self):
-        self.interpret()
-
-        for pn in ['title', 'name', 'content-plain', 'content']:
-            pv = self._props.get(pn)
-            if pv:
-                return pv
-        return None
-
     def __getattr__(self, name):
         try:
             return self._doGet(name)

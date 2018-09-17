@@ -1,6 +1,6 @@
 import logging
 import twitter
-from .base import Silo, upload_silo_media
+from .base import Silo
 
 
 logger = logging.getLogger(__name__)

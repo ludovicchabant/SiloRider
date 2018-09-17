@@ -46,29 +46,37 @@ class Processor:
             silo.onPostEnd()
 
     def processEntry(self, entry):
-        if self.isEntryFiltered(entry):
-            logger.debug("Entry is filtered out: %s" % entry.best_name)
-            return
-
         entry_url = entry.get('url')
         if not entry_url:
             logger.warning("Found entry without a URL.")
             return
 
+        if self.isEntryFiltered(entry):
+            logger.debug("Entry is filtered out: %s" % entry_url)
+            return
+
         postctx = SiloPostingContext(self.ctx)
         no_cache = self.ctx.args.no_cache
-        logger.debug("Processing entry: %s" % entry.best_name)
+        logger.debug("Processing entry: %s" % entry_url)
         for silo in self.silos:
             if no_cache or not self.ctx.cache.wasPosted(silo.name, entry_url):
                 if not self.ctx.args.dry_run:
-                    silo.postEntry(entry, postctx)
-                    self.ctx.cache.addPost(silo.name, entry_url)
+                    try:
+                        did_post = silo.postEntry(entry, postctx)
+                    except Exception as ex:
+                        did_post = False
+                        logger.error("Error posting: %s" % entry_url)
+                        logger.error(ex)
+                        if self.ctx.args.verbose:
+                            raise
+                    if did_post is True or did_post is None:
+                        self.ctx.cache.addPost(silo.name, entry_url)
                 else:
                     logger.info("Would post entry on %s: %s" %
-                                (silo.name, entry.best_name))
+                                (silo.name, entry_url))
             else:
                 logger.debug("Skipping already posted entry on %s: %s" %
-                             (silo.name, entry.best_name))
+                             (silo.name, entry_url))
 
     def isEntryFiltered(self, entry):
         if not self.config.has_section('filter'):

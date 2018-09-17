@@ -13,9 +13,10 @@ def test_one_article(cli, feedutil, mastmock):
     ))
 
     cli.appendSiloConfig('test', 'mastodon', url='/blah')
+    cli.setFeedConfig('feed', feed)
     mastmock.installTokens(cli, 'test')
 
-    ctx, _ = cli.run('process', feed)
+    ctx, _ = cli.run('process')
     assert ctx.cache.wasPosted('test', 'https://example.org/a-new-article')
     toot = ctx.silos[0].client.toots[0]
     assert toot == ('A new article https://example.org/a-new-article',
@@ -29,9 +30,10 @@ def test_one_micropost(cli, feedutil, mastmock):
     ))
 
     cli.appendSiloConfig('test', 'mastodon', url='/blah')
+    cli.setFeedConfig('feed', feed)
     mastmock.installTokens(cli, 'test')
 
-    ctx, _ = cli.run('process', feed)
+    ctx, _ = cli.run('process')
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.toots[0]
     assert toot == ("This is a quick update.", None, 'public')
@@ -47,6 +49,7 @@ def test_one_micropost_with_one_photo(cli, feedutil, mastmock, monkeypatch):
     ))
 
     cli.appendSiloConfig('test', 'mastodon', url='/blah')
+    cli.setFeedConfig('feed', feed)
     mastmock.installTokens(cli, 'test')
 
     with monkeypatch.context() as m:
@@ -54,7 +57,7 @@ def test_one_micropost_with_one_photo(cli, feedutil, mastmock, monkeypatch):
         mock_urllib(m)
         m.setattr(silorider.silos.mastodon.MastodonSilo, '_media_callback',
                   _patched_media_callback)
-        ctx, _ = cli.run('process', feed)
+        ctx, _ = cli.run('process')
 
     assert ctx.cache.wasPosted('test', '/01234.html')
     media = ctx.silos[0].client.media[0]
@@ -74,6 +77,7 @@ def test_one_micropost_with_two_photos(cli, feedutil, mastmock, monkeypatch):
     ))
 
     cli.appendSiloConfig('test', 'mastodon', url='/blah')
+    cli.setFeedConfig('feed', feed)
     mastmock.installTokens(cli, 'test')
 
     with monkeypatch.context() as m:
@@ -81,7 +85,7 @@ def test_one_micropost_with_two_photos(cli, feedutil, mastmock, monkeypatch):
         mock_urllib(m)
         m.setattr(silorider.silos.mastodon.MastodonSilo, '_media_callback',
                   _patched_media_callback)
-        ctx, _ = cli.run('process', feed)
+        ctx, _ = cli.run('process')
 
     assert ctx.cache.wasPosted('test', '/01234.html')
     media = ctx.silos[0].client.media[0]
@@ -90,6 +94,35 @@ def test_one_micropost_with_two_photos(cli, feedutil, mastmock, monkeypatch):
     assert media == ('/retrieved/fullimg2.jpg', 'image/jpeg', 2)
     toot = ctx.silos[0].client.toots[0]
     assert toot == ("This is a photo update with 2 photos.", [1, 2], 'public')
+
+
+def test_one_micropost_with_links(cli, feedutil, mastmock):
+    cli.appendSiloConfig('test', 'mastodon', url='/blah')
+    mastmock.installTokens(cli, 'test')
+
+    feed = cli.createTempFeed(feedutil.makeFeed(
+        """<p class="p-name">This is a link: http://example.org/blah</p>
+<a class="u-url" href="/01234.html">permalink</a>"""))
+    cli.setFeedConfig('feed', feed)
+    ctx, _ = cli.run('process')
+    toot = ctx.silos[0].client.toots[0]
+    assert toot == ("This is a link: http://example.org/blah", None, 'public')
+
+    feed = cli.createTempFeed(feedutil.makeFeed(
+        """<p class="e-content">This is another link: <a href="http://example.org/blah">http://example.org/blah</a></p>
+<a class="u-uri" href="/01234.html">permalink</a>"""))  # NOQA
+    cli.setFeedConfig('feed', feed)
+    ctx, _ = cli.run('process')
+    toot = ctx.silos[0].client.toots[0]
+    assert toot == ("This is another link: http://example.org/blah", None, 'public')  # NOQA
+
+    feed = cli.createTempFeed(feedutil.makeFeed(
+        """<p class="e-content">This is yet <a href="http://example.org/blah">another link</a></p>
+<a class="u-uri" href="/01234.html">permalink</a>"""))  # NOQA
+    cli.setFeedConfig('feed', feed)
+    ctx, _ = cli.run('process')
+    toot = ctx.silos[0].client.toots[0]
+    assert toot == ("This is yet another link http://example.org/blah", None, 'public')  # NOQA
 
 
 def _patched_media_callback(self, tmpfile, mt):

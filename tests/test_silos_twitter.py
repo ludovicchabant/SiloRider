@@ -12,9 +12,10 @@ def test_one_article(cli, feedutil, tweetmock):
     ))
 
     cli.appendSiloConfig('test', 'twitter', url='/blah')
+    cli.setFeedConfig('feed', feed)
     tweetmock.installTokens(cli, 'test')
 
-    ctx, _ = cli.run('process', feed)
+    ctx, _ = cli.run('process')
     assert ctx.cache.wasPosted('test', 'https://example.org/a-new-article')
     toot = ctx.silos[0].client.tweets[0]
     assert toot == ('A new article https://example.org/a-new-article', [])
@@ -27,9 +28,10 @@ def test_one_micropost(cli, feedutil, tweetmock):
     ))
 
     cli.appendSiloConfig('test', 'twitter', url='/blah')
+    cli.setFeedConfig('feed', feed)
     tweetmock.installTokens(cli, 'test')
 
-    ctx, _ = cli.run('process', feed)
+    ctx, _ = cli.run('process')
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.tweets[0]
     assert toot == ("This is a quick update.", [])
@@ -45,9 +47,10 @@ def test_one_micropost_with_one_photo(cli, feedutil, tweetmock, monkeypatch):
     ))
 
     cli.appendSiloConfig('test', 'twitter', url='/blah')
+    cli.setFeedConfig('feed', feed)
     tweetmock.installTokens(cli, 'test')
 
-    ctx, _ = cli.run('process', feed)
+    ctx, _ = cli.run('process')
 
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.tweets[0]
@@ -65,9 +68,10 @@ def test_one_micropost_with_two_photos(cli, feedutil, tweetmock, monkeypatch):
     ))
 
     cli.appendSiloConfig('test', 'twitter', url='/blah')
+    cli.setFeedConfig('feed', feed)
     tweetmock.installTokens(cli, 'test')
 
-    ctx, _ = cli.run('process', feed)
+    ctx, _ = cli.run('process')
 
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.tweets[0]
