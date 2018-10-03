@@ -8,6 +8,9 @@ import pytest
 import silorider.main
 
 
+logger = logging.getLogger(__name__)
+
+
 # def pytest_collect_file(parent, path):
 #     if path.ext == ".html" and path.basename.startswith("feeds"):
 #         return FeedFile(path, parent)
@@ -91,7 +94,7 @@ uri=memory://for_test
         self._pre_hooks.append(hook)
 
     def run(self, *args):
-        pre_args = []
+        pre_args = ['-v']
         if self._cfgtxt or self._feedcfg:
             cfgtxt = self._cfgtxt
             cfgtxt += '\n\n[urls]\n'
@@ -99,11 +102,11 @@ uri=memory://for_test
                 cfgtxt += '%s=%s\n' % (n, u)
 
             tmpfd, tmpcfg = tempfile.mkstemp()
-            print("Creating temporary configuration file: %s" % tmpcfg)
+            logger.info("Creating temporary configuration file: %s" % tmpcfg)
             with os.fdopen(tmpfd, 'w') as tmpfp:
                 tmpfp.write(cfgtxt)
             self._cleanup.append(tmpcfg)
-            pre_args = ['-c', tmpcfg]
+            pre_args += ['-c', tmpcfg]
 
         captured = io.StringIO()
         handler = logging.StreamHandler(captured)
@@ -127,7 +130,7 @@ uri=memory://for_test
         silorider.main.post_exec_hook = post_exec_hook
 
         args = pre_args + list(args)
-        print("Running command: %s" % list(args))
+        logger.info("Running command: %s" % list(args))
         try:
             silorider.main._unsafe_main(args)
         finally:
@@ -136,7 +139,7 @@ uri=memory://for_test
 
             silorider_logger.removeHandler(handler)
 
-            print("Cleaning %d temporary files." % len(self._cleanup))
+            logger.info("Cleaning %d temporary files." % len(self._cleanup))
             for tmpname in self._cleanup:
                 try:
                     os.remove(tmpname)

@@ -92,7 +92,8 @@ def load_silos(config, cache):
     from .print import PrintSilo
     from .mastodon import MastodonSilo
     from .twitter import TwitterSilo
-    silo_types = [PrintSilo, MastodonSilo, TwitterSilo]
+    from .webmention import WebmentionSilo
+    silo_types = [PrintSilo, MastodonSilo, TwitterSilo, WebmentionSilo]
     silo_dict = dict([(s.SILO_TYPE, s) for s in silo_types])
 
     silos = []

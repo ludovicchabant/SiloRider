@@ -13,6 +13,7 @@ coloredlogs = "*"
 "mf2util" = "*"
 python-dateutil = "*"
 python-twitter = "*"
+ronkyuu = "*"
 
 
 [dev-packages]

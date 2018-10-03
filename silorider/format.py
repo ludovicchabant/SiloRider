@@ -2,12 +2,7 @@ import re
 import urllib.parse
 import textwrap
 import bs4
-
-try:
-    import lxml  # NOQA
-    _bs_parser = 'xml'
-except ImportError:
-    _bs_parser = 'html.parser'
+from .config import has_lxml
 
 
 def format_entry(entry, limit=None, add_url='auto'):
@@ -58,7 +53,7 @@ def get_best_text(entry, *, plain=True, inline_urls=True):
 def strip_html(txt, *, inline_urls=True):
     outtxt = ''
     ctx = _HtmlStripping()
-    soup = bs4.BeautifulSoup(txt, _bs_parser)
+    soup = bs4.BeautifulSoup(txt, 'lxml' if has_lxml else 'html5lib')
     for c in soup.children:
         outtxt += _do_strip_html(c, ctx)
 
