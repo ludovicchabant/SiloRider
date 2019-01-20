@@ -70,13 +70,16 @@ class Silo:
     def authenticate(self, ctx):
         raise NotImplementedError()
 
-    def onPostStart(self):
+    def onPostStart(self, ctx):
         pass
 
     def postEntry(self, entry, ctx):
         raise NotImplementedError()
 
-    def onPostEnd(self):
+    def dryRunPostEntry(self, entry, ctx):
+        pass
+
+    def onPostEnd(self, ctx):
         pass
 
 

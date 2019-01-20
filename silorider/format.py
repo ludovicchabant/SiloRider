@@ -8,6 +8,8 @@ from .config import has_lxml
 def format_entry(entry, limit=None, add_url='auto'):
     url = entry.url
     name = get_best_text(entry)
+    if not name:
+        raise Exception("Can't find best text for entry: %s" % url)
 
     do_add_url = ((add_url is True) or
                   (add_url == 'auto' and not entry.is_micropost))
@@ -36,25 +38,25 @@ def format_entry(entry, limit=None, add_url='auto'):
 
 
 def get_best_text(entry, *, plain=True, inline_urls=True):
-    text = entry.get('title')
-    if not text:
-        text = entry.get('name')
-        if not text:
-            text = entry.get('content')
+    elem = entry.htmlFind(class_='p-title')
+    if not elem:
+        elem = entry.htmlFind(class_='p-name')
+    if not elem:
+        elem = entry.htmlFind(class_='e-content')
 
-    if text:
+    if elem:
         if not plain:
-            return text
-        return strip_html(text, inline_urls=inline_urls)
+            text = '\n'.join([str(c) for c in elem.contents])
+            return str(text)
+        return strip_html(elem, inline_urls=inline_urls)
 
     return None
 
 
-def strip_html(txt, *, inline_urls=True):
+def strip_html(bs_elem, *, inline_urls=True):
     outtxt = ''
     ctx = _HtmlStripping()
-    soup = bs4.BeautifulSoup(txt, 'lxml' if has_lxml else 'html5lib')
-    for c in soup.children:
+    for c in bs_elem.children:
         outtxt += _do_strip_html(c, ctx)
 
     keys = ['url:%d' % i for i in range(len(ctx.urls))]
@@ -86,13 +88,7 @@ def _do_strip_html(elem, ctx):
         if len(cnts) == 1:
             href_txt = cnts[0].string
             href_parsed = urllib.parse.urlparse(href)
-            print("Checking:", href_txt, href_parsed.hostname)
-            if href_txt in [
-                    href,
-                    href_parsed.netloc,
-                    '%s://%s' % (href_parsed.scheme, href_parsed.netloc),
-                    '%s://%s%s' % (href_parsed.scheme, href_parsed.netloc,
-                                   href_parsed.path)]:
+            if href_txt in href:
                 return href
 
         a_txt = ''.join([_do_strip_html(c, ctx)

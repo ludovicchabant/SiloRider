@@ -39,11 +39,11 @@ class Processor:
 
     def preProcess(self):
         for silo in self.silos:
-            silo.onPostStart()
+            silo.onPostStart(self.ctx)
 
     def postProcess(self):
         for silo in self.silos:
-            silo.onPostEnd()
+            silo.onPostEnd(self.ctx)
 
     def processEntry(self, entry):
         entry_url = entry.get('url')
@@ -74,6 +74,7 @@ class Processor:
                 else:
                     logger.info("Would post entry on %s: %s" %
                                 (silo.name, entry_url))
+                    silo.dryRunPostEntry(entry, postctx)
             else:
                 logger.debug("Skipping already posted entry on %s: %s" %
                              (silo.name, entry_url))

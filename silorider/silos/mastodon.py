@@ -82,8 +82,9 @@ class MastodonSilo(Silo):
 
             self.setCacheItem('accesstoken', access_token)
 
-    def onPostStart(self):
-        self._ensureApp()
+    def onPostStart(self, ctx):
+        if not ctx.args.dry_run:
+            self._ensureApp()
 
     def _ensureApp(self):
         if self.client is not None:
@@ -120,6 +121,11 @@ class MastodonSilo(Silo):
         logger.debug("Posting toot: %s" % toottxt)
         self.client.status_post(toottxt, media_ids=media_ids,
                                 visibility=visibility)
+
+    def dryRunPostEntry(self, entry, ctx):
+        toottxt = self.formatEntry(entry, limit=500)
+        logger.info("Toot would be:")
+        logger.info(toottxt)
 
     def _media_callback(self, tmpfile, mt):
         with open(tmpfile, 'rb') as tmpfp:

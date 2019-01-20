@@ -37,8 +37,9 @@ class TwitterSilo(Silo):
             access_token = '%s,%s' % (access_key, access_secret)
             self.setCacheItem('accesstoken', access_token)
 
-    def onPostStart(self):
-        self._ensureClient()
+    def onPostStart(self, ctx):
+        if not ctx.args.dry_run:
+            self._ensureClient()
 
     def _ensureClient(self):
         if self.client is not None:
@@ -73,3 +74,8 @@ class TwitterSilo(Silo):
         logger.debug("Posting tweet: %s" % tweettxt)
         media_urls = entry.get('photo', [], force_list=True)
         self.client.PostUpdate(tweettxt, media=media_urls)
+
+    def dryRunPostEntry(self, entry, ctx):
+        tweettxt = self.formatEntry(entry, limit=280)
+        logger.info("Tweet would be:")
+        logger.info(tweettxt)
