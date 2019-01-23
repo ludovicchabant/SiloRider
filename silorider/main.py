@@ -58,6 +58,9 @@ def _setup_process(parser):
         action='store_true',
         help="Ignore the cache, post all entries that qualify.")
     parser.add_argument(
+        '--since',
+        help="Post entries since the specified date/time only.")
+    parser.add_argument(
         '--dry-run',
         action='store_true',
         help="Only report what would be posted, but don't post anything.")

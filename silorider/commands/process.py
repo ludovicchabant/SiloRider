@@ -38,6 +38,11 @@ class Processor:
         self.postProcess()
 
     def preProcess(self):
+        # Pre-parse the "since" date/time.
+        if self.ctx.args.since:
+            import dateparser
+            self.ctx.args.since = dateparser.parse(self.ctx.args.since)
+
         for silo in self.silos:
             silo.onPostStart(self.ctx)
 
@@ -57,27 +62,48 @@ class Processor:
 
         postctx = SiloPostingContext(self.ctx)
         no_cache = self.ctx.args.no_cache
+        only_since = self.ctx.args.since
         logger.debug("Processing entry: %s" % entry_url)
         for silo in self.silos:
-            if no_cache or not self.ctx.cache.wasPosted(silo.name, entry_url):
-                if not self.ctx.args.dry_run:
-                    try:
-                        did_post = silo.postEntry(entry, postctx)
-                    except Exception as ex:
-                        did_post = False
-                        logger.error("Error posting: %s" % entry_url)
-                        logger.error(ex)
-                        if self.ctx.args.verbose:
-                            raise
-                    if did_post is True or did_post is None:
-                        self.ctx.cache.addPost(silo.name, entry_url)
-                else:
-                    logger.info("Would post entry on %s: %s" %
-                                (silo.name, entry_url))
-                    silo.dryRunPostEntry(entry, postctx)
-            else:
+            if only_since:
+                entry_dt = entry.get('published')
+                if not entry_dt:
+                    logger.warning(
+                        "Skipping entry with no published date/time "
+                        "for %s: %s" % (silo.name, entry_url))
+                    continue
+
+                # Strip entry datetime's time-zone information if we
+                # don't have a time-zone info from the command line.
+                if not only_since.tzinfo:
+                    entry_dt = entry_dt.replace(tzinfo=None)
+
+                if entry_dt < only_since:
+                    logger.info(
+                        "Skipping entry older than specified date/time "
+                        "for %s: %s" % (silo.name, entry_url))
+                    continue
+
+            if not no_cache and self.ctx.cache.wasPosted(silo.name, entry_url):
                 logger.debug("Skipping already posted entry on %s: %s" %
                              (silo.name, entry_url))
+                continue
+
+            if not self.ctx.args.dry_run:
+                try:
+                    did_post = silo.postEntry(entry, postctx)
+                except Exception as ex:
+                    did_post = False
+                    logger.error("Error posting: %s" % entry_url)
+                    logger.error(ex)
+                    if self.ctx.args.verbose:
+                        raise
+                if did_post is True or did_post is None:
+                    self.ctx.cache.addPost(silo.name, entry_url)
+            else:
+                logger.info("Would post entry on %s: %s" %
+                            (silo.name, entry_url))
+                silo.dryRunPostEntry(entry, postctx)
 
     def isEntryFiltered(self, entry):
         if not self.config.has_section('filter'):
