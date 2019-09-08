@@ -5,15 +5,19 @@ from silorider.format import format_entry, strip_html
 test_url = 'https://example.org/article'
 
 
-class TestEntry:
-    pass
-
-
 def _make_test_entry(best_name, is_micropost):
+    class TestEntry:
+        def __init__(self):
+            self.is_micropost = is_micropost
+            self.url = test_url
+
+        def get(self, _):
+            return best_name
+
+        def htmlFind(self, *args, **kwargs):
+            return best_name
+
     entry = TestEntry()
-    entry.get = lambda n: best_name
-    entry.is_micropost = is_micropost
-    entry.url = test_url
     return entry
 
 

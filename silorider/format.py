@@ -5,9 +5,9 @@ import bs4
 from .config import has_lxml
 
 
-def format_entry(entry, limit=None, add_url='auto'):
+def format_entry(entry, limit=None, add_url='auto', url_flattener=None):
     url = entry.url
-    name = get_best_text(entry)
+    name = get_best_text(entry, url_flattener=url_flattener)
     if not name:
         raise Exception("Can't find best text for entry: %s" % url)
 
@@ -37,7 +37,12 @@ def format_entry(entry, limit=None, add_url='auto'):
     return name
 
 
-def get_best_text(entry, *, plain=True, inline_urls=True):
+class UrlFlattener:
+    def replaceHref(self, text, url):
+        return None
+
+
+def get_best_text(entry, *, plain=True, inline_urls=True, url_flattener=None):
     elem = entry.htmlFind(class_='p-title')
     if not elem:
         elem = entry.htmlFind(class_='p-name')
@@ -48,14 +53,20 @@ def get_best_text(entry, *, plain=True, inline_urls=True):
         if not plain:
             text = '\n'.join([str(c) for c in elem.contents])
             return str(text)
-        return strip_html(elem, inline_urls=inline_urls)
+        return strip_html(elem, inline_urls=inline_urls,
+                          url_flattener=url_flattener)
 
     return None
 
 
-def strip_html(bs_elem, *, inline_urls=True):
+def strip_html(bs_elem, *, inline_urls=True, url_flattener=None):
+    if isinstance(bs_elem, str):
+        bs_elem = bs4.BeautifulSoup(bs_elem,
+                                    'lxml' if has_lxml else 'html5lib')
+
     outtxt = ''
     ctx = _HtmlStripping()
+    ctx.url_flattener = url_flattener
     for c in bs_elem.children:
         outtxt += _do_strip_html(c, ctx)
 
@@ -73,6 +84,7 @@ def strip_html(bs_elem, *, inline_urls=True):
 class _HtmlStripping:
     def __init__(self):
         self.urls = []
+        self.url_flattener = None
 
 
 def _escape_percents(txt):
@@ -92,8 +104,20 @@ def _do_strip_html(elem, ctx):
         if len(cnts) == 1:
             href_txt = cnts[0].string
             if href_txt in href:
+                # If we have a simple hyperlink where the text is a
+                # substring of the target URL, just return the URL.
                 return _escape_percents(href)
 
+            if ctx.url_flattener:
+                # Use an URL flattener if we have one.
+                href_parsed = urllib.parse.urlparse(href)
+                href_flattened = ctx.url_flattener.replaceHref(
+                    href_txt, href_parsed)
+                if href_flattened is not None:
+                    return href_flattened
+
+        # No easy way to simplify this hyperlink... let's put a marker
+        # for the URL to be later replaced in the text.
         a_txt = ''.join([_do_strip_html(c, ctx)
                          for c in cnts])
         a_txt += '%%(url:%d)s' % len(ctx.urls)

@@ -67,7 +67,8 @@ class TwitterSilo(Silo):
             access_token_secret=access_secret)
 
     def postEntry(self, entry, ctx):
-        tweettxt = self.formatEntry(entry, limit=280)
+        tweettxt = self.formatEntry(entry, limit=280,
+                                    url_flattener=TwitterUrlFlattener())
         if not tweettxt:
             raise Exception("Can't find any content to use for the tweet!")
 
@@ -79,3 +80,20 @@ class TwitterSilo(Silo):
         tweettxt = self.formatEntry(entry, limit=280)
         logger.info("Tweet would be:")
         logger.info(tweettxt)
+
+
+TWITTER_NETLOCS = ['twitter.com', 'www.twitter.com']
+
+
+class TwitterUrlFlattener:
+    def replaceHref(self, text, url):
+        # Is it a Twitter URL?
+        if url.netloc not in TWITTER_NETLOCS:
+            return None
+
+        path = url.path.lstrip('/')
+        # Is it a profile URL?
+        if '/' not in path:
+            return '@' + path
+
+        return None

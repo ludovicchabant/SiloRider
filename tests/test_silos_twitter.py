@@ -37,6 +37,23 @@ def test_one_micropost(cli, feedutil, tweetmock):
     assert toot == ("This is a quick update.", [])
 
 
+def test_one_micropost_with_mention(cli, feedutil, tweetmock):
+    feed = cli.createTempFeed(feedutil.makeFeed(
+        """<p class="p-name">Hey <a href="https://twitter.com/jack">Jacky</a>
+you should fix your stuff!</p>
+<a class="u-url" href="/01234.html">permalink</a>"""
+    ))
+
+    cli.appendSiloConfig('test', 'twitter', url='/blah')
+    cli.setFeedConfig('feed', feed)
+    tweetmock.installTokens(cli, 'test')
+
+    ctx, _ = cli.run('process')
+    assert ctx.cache.wasPosted('test', '/01234.html')
+    toot = ctx.silos[0].client.tweets[0]
+    assert toot == ("Hey @jack you should fix your stuff!", [])
+
+
 def test_one_micropost_with_one_photo(cli, feedutil, tweetmock, monkeypatch):
     feed = cli.createTempFeed(feedutil.makeFeed(
         """<p class="p-name">This is a quick photo update.</p>
