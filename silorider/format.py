@@ -75,9 +75,13 @@ class _HtmlStripping:
         self.urls = []
 
 
+def _escape_percents(txt):
+    return txt.replace('%', '%%')
+
+
 def _do_strip_html(elem, ctx):
     if isinstance(elem, bs4.NavigableString):
-        return str(elem)
+        return _escape_percents(str(elem))
 
     if elem.name == 'a':
         try:
@@ -87,9 +91,8 @@ def _do_strip_html(elem, ctx):
         cnts = list(elem.contents)
         if len(cnts) == 1:
             href_txt = cnts[0].string
-            href_parsed = urllib.parse.urlparse(href)
             if href_txt in href:
-                return href
+                return _escape_percents(href)
 
         a_txt = ''.join([_do_strip_html(c, ctx)
                          for c in cnts])
