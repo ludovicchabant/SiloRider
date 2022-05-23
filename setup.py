@@ -40,6 +40,7 @@ setup(
     license="Apache License 2.0",
     url='https://bolt80.com/silorider',
     packages=find_packages(),
+    include_package_data=True,
     setup_requires=setup_requires,
     tests_require=tests_require,
     install_requires=install_requires,
