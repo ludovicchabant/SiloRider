@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def parse_url(url_or_path):
     mf_obj = parse_mf2(url_or_path)
-    matcher = EntryMatcher(mf_obj)
+    matcher = EntryMatcher(mf_obj.to_dict(), mf_obj.__doc__)
 
     feed = Feed(url_or_path, matcher.mf_dict)
 
@@ -146,21 +146,25 @@ class EntryMatcher:
     """ A class that matches `mf2util` results along with the original
         BeautifulSoup document, so we have HTML objects on hand if needed.
     """
-    def __init__(self, mf_obj):
-        self.mf_dict = mf_obj.to_dict()
+    def __init__(self, mf_dict, bf_doc):
+        self.mf_dict = mf_dict
         self.entries = []
 
         els_by_type = {}
         next_el = {}
-        bf = mf_obj.__doc__
-        for e in self.mf_dict.get('items', []):
+
+        items = mf_dict.get('items', [])
+        if len(items) == 1 and items[0]['type'][0] == 'h-feed':
+            items = items[0].get('children', [])
+
+        for e in items:
             types = e.get('type')
             if not types:
                 continue
 
             entry_type = types[0]
             if entry_type not in els_by_type:
-                ebt = list(bf.find_all(class_=entry_type))
+                ebt = list(bf_doc.find_all(class_=entry_type))
                 els_by_type[entry_type] = ebt
                 next_el[entry_type] = 0
 
