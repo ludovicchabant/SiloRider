@@ -126,7 +126,10 @@ class MastodonSilo(Silo):
         toottxt = self.formatEntry(entry, limit=500)
         logger.info("Toot would be:")
         logger.info(toottxt)
+        media_urls = entry.get('photo', [], force_list=True)
+        if media_urls:
+            logger.info("...with photos: %s" % str(media_urls))
 
     def _media_callback(self, tmpfile, mt):
         with open(tmpfile, 'rb') as tmpfp:
-            return self.client.media_post(tmpfp, mt)
+            return self.client.media_post(tmpfp, mime_type=mt)

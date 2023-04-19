@@ -110,7 +110,7 @@ def test_one_micropost_with_links(cli, feedutil, mastmock):
 
     feed = cli.createTempFeed(feedutil.makeFeed(
         """<p class="e-content">This is another link: <a href="http://example.org/blah">http://example.org/blah</a></p>
-<a class="u-uri" href="/01234.html">permalink</a>"""))  # NOQA
+<a class="u-url" href="/01234.html">permalink</a>"""))  # NOQA
     cli.setFeedConfig('feed', feed)
     ctx, _ = cli.run('process')
     toot = ctx.silos[0].client.toots[0]
@@ -118,7 +118,7 @@ def test_one_micropost_with_links(cli, feedutil, mastmock):
 
     feed = cli.createTempFeed(feedutil.makeFeed(
         """<p class="e-content">This is yet <a href="http://example.org/blah">another link</a></p>
-<a class="u-uri" href="/01234.html">permalink</a>"""))  # NOQA
+<a class="u-url" href="/01234.html">permalink</a>"""))  # NOQA
     cli.setFeedConfig('feed', feed)
     ctx, _ = cli.run('process')
     toot = ctx.silos[0].client.toots[0]
