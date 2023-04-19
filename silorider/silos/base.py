@@ -133,8 +133,9 @@ def upload_silo_media(entry, propname, callback):
 
 def _do_upload_silo_media(url, callback):
     logger.debug("Downloading %s for upload to silo..." % url)
-    mt, enc = mimetypes.guess_type(url)
+    mt, enc = mimetypes.guess_type(url, strict=False)
     if not mt:
+        logger.debug("Can't guess MIME type, defaulting to jpg")
         mt = mimetypes.common_types['.jpg']
 
     ext = mimetypes.guess_extension(mt) or '.jpg'
