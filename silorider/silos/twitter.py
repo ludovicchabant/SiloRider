@@ -1,6 +1,8 @@
 import logging
 import twitter
+import urllib.parse
 from .base import Silo
+from ..format import UrlFlattener
 
 
 logger = logging.getLogger(__name__)
@@ -77,16 +79,22 @@ class TwitterSilo(Silo):
         self.client.PostUpdate(tweettxt, media=media_urls)
 
     def dryRunPostEntry(self, entry, ctx):
-        tweettxt = self.formatEntry(entry, limit=280)
+        tweettxt = self.formatEntry(entry, limit=280,
+                                    url_flattener=TwitterUrlFlattener())
         logger.info("Tweet would be:")
         logger.info(tweettxt)
+        media_urls = entry.get('photo', [], force_list=True)
+        if media_urls:
+            logger.info("...with photos: %s" % str(media_urls))
 
 
 TWITTER_NETLOCS = ['twitter.com', 'www.twitter.com']
 
 
-class TwitterUrlFlattener:
-    def replaceHref(self, text, url):
+class TwitterUrlFlattener(UrlFlattener):
+    def replaceHref(self, text, raw_url, ctx):
+        url = urllib.parse.urlparse(raw_url)
+
         # Is it a Twitter URL?
         if url.netloc not in TWITTER_NETLOCS:
             return None
@@ -97,3 +105,6 @@ class TwitterUrlFlattener:
             return '@' + path
 
         return None
+
+    def measureUrl(self, raw_url):
+        return 23
