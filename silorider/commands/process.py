@@ -53,7 +53,7 @@ class Processor:
     def processEntry(self, entry):
         entry_url = entry.get('url')
         if not entry_url:
-            logger.warning("Found entry without a URL.")
+            logger.warning("Found entry without a URL: %s" % repr(entry._mf_entry))
             return
 
         if self.isEntryFiltered(entry):
