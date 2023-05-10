@@ -125,7 +125,7 @@ def test_one_micropost_with_links(cli, feedutil, mastmock):
     assert toot == ("This is yet another link http://example.org/blah", None, 'public')  # NOQA
 
 
-def _patched_media_callback(self, tmpfile, mt):
+def _patched_media_callback(self, tmpfile, mt, url, desc):
     return self.client.media_post(tmpfile, mt)
 
 

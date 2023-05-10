@@ -1,3 +1,4 @@
+import time
 import getpass
 import logging
 import mastodon
@@ -118,9 +119,26 @@ class MastodonSilo(Silo):
 
         media_ids = upload_silo_media(entry, 'photo', self._media_callback)
 
+        tries_left = 5
         logger.debug("Posting toot: %s" % toottxt)
-        self.client.status_post(toottxt, media_ids=media_ids,
-                                visibility=visibility)
+        while tries_left > 0:
+            try:
+                self.client.status_post(toottxt, media_ids=media_ids,
+                                        visibility=visibility)
+                break # if we got here without an exception, it's all good!
+            except mastodon.MastodonAPIError as merr:
+                if merr.args[1] == 422 and media_ids:
+                    # Unprocessable entity error. This happens if we have
+                    # uploaded some big images and the server is still
+                    # processing them.  In this case, let's wait a second and
+                    # try again.
+                    logger.debug(
+                        "Server may still be processing media... waiting"
+                        "to retry")
+                    time.sleep(1)
+                    tries_left -= 1
+                    continue
+                raise
 
     def dryRunPostEntry(self, entry, ctx):
         toottxt = self.formatEntry(entry, limit=500)
@@ -130,6 +148,8 @@ class MastodonSilo(Silo):
         if media_urls:
             logger.info("...with photos: %s" % str(media_urls))
 
-    def _media_callback(self, tmpfile, mt):
+    def _media_callback(self, tmpfile, mt, url, desc):
         with open(tmpfile, 'rb') as tmpfp:
-            return self.client.media_post(tmpfp, mime_type=mt)
+            logger.debug("Uploading to mastodon with description: %s" % desc)
+            return self.client.media_post(
+                    tmpfp, mime_type=mt, description=desc)

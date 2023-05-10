@@ -44,7 +44,8 @@ def parse_mf2(url_or_path):
         params = {'doc': obj}
     else:
         params = {'url': url_or_path}
-    return mf2py.Parser(html_parser='html5lib', **params)
+    return mf2py.Parser(
+            html_parser='html5lib', img_with_alt=True, **params)
 
 
 class InvalidEntryException(Exception):
@@ -172,3 +173,17 @@ class EntryMatcher:
             e_and_el = (e, els[next_el[entry_type]])
             self.entries.append(e_and_el)
             next_el[entry_type] += 1
+
+
+def strip_img_alt(photos):
+    if not isinstance(photos, list):
+        raise Exception("Expected list of media items, got: %s" % photos)
+    urls = []
+    for photo in photos:
+        if isinstance(photo, dict):
+            urls.append(photo['value'])
+        elif isinstance(photo, str):
+            urls.append(photo)
+        else:
+            raise Exception("Unexpected media item: %s" % photo)
+    return urls

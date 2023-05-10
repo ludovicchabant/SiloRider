@@ -120,18 +120,21 @@ def load_silos(config, cache):
 
 
 def upload_silo_media(entry, propname, callback):
+    # The provided callback must take the parameters:
+    #  tmpfile path, mimetype, original media url, media description
     media_ids = None
-    urls = entry.get(propname, [], force_list=True)
-    if urls:
+    media_entries = entry.get(propname, [], force_list=True)
+    if media_entries:
         media_ids = []
-        for url in urls:
-            mid = _do_upload_silo_media(url, callback)
+        for media_entry in media_entries:
+            url, desc = _img_url_and_alt(media_entry)
+            mid = _do_upload_silo_media(url, desc, callback)
             if mid is not None:
                 media_ids.append(mid)
     return media_ids
 
 
-def _do_upload_silo_media(url, callback):
+def _do_upload_silo_media(url, desc, callback):
     logger.debug("Downloading %s for upload to silo..." % url)
     mt, enc = mimetypes.guess_type(url, strict=False)
     if not mt:
@@ -144,7 +147,18 @@ def _do_upload_silo_media(url, callback):
     try:
         tmpfile, headers = urllib.request.urlretrieve(url)
         logger.debug("Using temporary file: %s" % tmpfile)
-        return callback(tmpfile, mt)
+        return callback(tmpfile, mt, url, desc)
     finally:
         logger.debug("Cleaning up.")
         urllib.request.urlcleanup()
+
+
+def _img_url_and_alt(media_entry):
+    # If an image has an alt attribute, the entry comes as a dictionary
+    # with 'value' for the url and 'alt' for the description.
+    if isinstance(media_entry, str):
+        return media_entry, None
+    if isinstance(media_entry, dict):
+        logger.debug("Got alt text for image! %s" % media_entry['alt'])
+        return media_entry['value'], media_entry['alt']
+    raise Exception("Unexpected media entry: %s" % media_entry)

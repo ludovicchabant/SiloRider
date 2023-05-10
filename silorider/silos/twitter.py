@@ -3,6 +3,7 @@ import twitter
 import urllib.parse
 from .base import Silo
 from ..format import UrlFlattener
+from ..parse import strip_img_alt
 
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ class TwitterSilo(Silo):
 
         logger.debug("Posting tweet: %s" % tweettxt)
         media_urls = entry.get('photo', [], force_list=True)
+        media_urls = strip_img_alt(media_urls)
         self.client.PostUpdate(tweettxt, media=media_urls)
 
     def dryRunPostEntry(self, entry, ctx):
@@ -84,6 +86,7 @@ class TwitterSilo(Silo):
         logger.info("Tweet would be:")
         logger.info(tweettxt)
         media_urls = entry.get('photo', [], force_list=True)
+        media_urls = strip_img_alt(media_urls)
         if media_urls:
             logger.info("...with photos: %s" % str(media_urls))
 
