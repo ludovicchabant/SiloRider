@@ -1,3 +1,11 @@
-pytest==3.6.2
-pytest-runner==4.2
-setuptools-scm==2.1.0
+-i https://pypi.python.org/simple
+exceptiongroup==1.1.1
+iniconfig==2.0.0
+packaging==23.1
+pluggy==1.0.0
+pytest==7.3.1
+pytest-runner==6.0.0
+setuptools==67.7.2
+setuptools-scm==7.1.0
+tomli==2.0.1
+typing-extensions==4.5.0
