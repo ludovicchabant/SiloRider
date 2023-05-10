@@ -45,9 +45,9 @@ def test_strip_html(text, expected):
 
 
 @pytest.mark.parametrize("text, expected", [
-    ("<p>Something with <a href=\"http://example.org/blah\">a link</a>",
+    ("<p>Something with <a href=\"http://example.org/blah\">a link</a></p>",
      "Something with a link\nhttp://example.org/blah"),
-    ("<p>Something with a link <a href=\"http://example.org/blah\">http://example.org</a>",  # NOQA
+    ("<p>Something with a link <a href=\"http://example.org/blah\">http://example.org</a></p>",  # NOQA
      "Something with a link\nhttp://example.org/blah"),
     ("<p>Something with <a href=\"http://example.org/first\">one link here</a> and <a href=\"http://example.org/second\">another there</a>...</p>",  # NOQA
      "Something with one link here and another there...\nhttp://example.org/first\nhttp://example.org/second")  # NOQA
