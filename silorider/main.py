@@ -83,6 +83,10 @@ def _setup_populate(parser):
     parser.add_argument(
         '--until',
         help="The date until which to populate the cache (included).")
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help="Only report what would be posted, but don't post anything.")
     parser.set_defaults(func=_run)
 
 

@@ -1,5 +1,5 @@
 import logging
-from ..parse import parse_mf2
+from ..parse import parse_url
 
 
 logger = logging.getLogger(__name__)
@@ -33,41 +33,36 @@ def get_named_silos(silos, names):
 
 
 def populate_cache(ctx):
-    urls = get_named_urls(ctx.config, ctx.args.url)
-    for url in urls:
-        logger.info("Caching entries from %s" % url)
-        _populate_cache_for_url(url, ctx)
-
-
-def _populate_cache_for_url(url, ctx):
-    import mf2util
     import dateutil.parser
 
-    silos = get_named_silos(ctx.silos, ctx.args.silo)
+    urls = get_named_urls(ctx.config, ctx.args.url)
 
     until_dt = None
     if ctx.args.until:
         until_dt = dateutil.parser.parse(ctx.args.until).date()
         logger.debug("Populating cache until: %s" % until_dt)
 
-    mf_obj = parse_mf2(url)
-    mf_dict = mf_obj.to_dict()
-    for entry in mf_dict.get('items', []):
-        entry_props = entry.get('properties')
-        if not entry_props:
-            logger.warning("Found entry without any properties.")
-            continue
+    for url in urls:
+        logger.info("Caching entries from %s" % url)
+        _populate_cache_for_url(url, ctx, until_dt=until_dt)
 
-        entry_url = entry_props.get('url')
+
+def _populate_cache_for_url(url, ctx, until_dt=None):
+    silos = get_named_silos(ctx.silos, ctx.args.silo)
+
+    feed = parse_url(url)
+
+    for entry in feed.entries:
+        entry_url = entry.get('url')
         if not entry_url:
-            logger.warning("Found entry without any URL.")
+            logger.warning("Found entry without any URL: %s" % repr(entry._mf_entry))
             continue
 
         if isinstance(entry_url, list):
             entry_url = entry_url[0]
 
         if until_dt:
-            entry_published = entry_props.get('published')
+            entry_published = entry.get('published')
             if not entry_published:
                 logger.warning("Entry '%s' has not published date." %
                                entry_url)
@@ -76,10 +71,16 @@ def _populate_cache_for_url(url, ctx):
             if isinstance(entry_published, list):
                 entry_published = entry_published[0]
 
-            entry_published_dt = mf2util.parse_datetime(entry_published)
-            if entry_published_dt and entry_published_dt.date() > until_dt:
+            if entry_published and entry_published.date() > until_dt:
                 continue
 
-        logger.debug("Adding entry to cache: %s" % entry_url)
         for silo in silos:
-            ctx.cache.addPost(silo.name, entry_url)
+            if ctx.cache.wasPosted(silo.name, entry_url):
+                logger.debug("Entry is already in '%s' cache: %s" % (silo.name, entry_url))
+                continue
+
+            if not ctx.args.dry_run:
+                logger.debug("Adding entry to '%s' cache: %s" % (silo.name, entry_url))
+                ctx.cache.addPost(silo.name, entry_url)
+            else:
+                logger.debug("Would add entry to '%s' cache: %s" % (silo.name, entry_url))
