@@ -1,7 +1,8 @@
+import os.path
 import logging
-import twitter
+import tweepy
 import urllib.parse
-from .base import Silo
+from .base import Silo, upload_silo_media
 from ..format import UrlFlattener
 from ..parse import strip_img_alt
 
@@ -9,9 +10,32 @@ from ..parse import strip_img_alt
 logger = logging.getLogger(__name__)
 
 
+class _CompositeClient:
+    def __init__(self,
+            consumer_key, consumer_secret,
+            access_token_key, access_token_secret):
+        self.v2 = tweepy.Client(
+            None, # using OAuth v1
+            consumer_key=consumer_key,
+            consumer_secret=consumer_secret,
+            access_token=access_token_key,
+            access_token_secret=access_token_secret)
+
+        auth_v1 = tweepy.OAuth1UserHandler(
+                consumer_key, consumer_secret,
+                access_token_key, access_token_secret)
+        self.v1 = tweepy.API(auth_v1)
+
+    def create_tweet(self, *args, **kwargs):
+        return self.v2.create_tweet(*args, **kwargs)
+
+    def simple_upload(self, *args, **kwargs):
+        return self.v1.simple_upload(*args, **kwargs)
+
+
 class TwitterSilo(Silo):
     SILO_TYPE = 'twitter'
-    _CLIENT_CLASS = twitter.Api
+    _CLIENT_CLASS = _CompositeClient
 
     def __init__(self, ctx):
         super().__init__(ctx)
@@ -75,10 +99,10 @@ class TwitterSilo(Silo):
         if not tweettxt:
             raise Exception("Can't find any content to use for the tweet!")
 
+        media_ids = upload_silo_media(entry, 'photo', self._media_callback)
+
         logger.debug("Posting tweet: %s" % tweettxt)
-        media_urls = entry.get('photo', [], force_list=True)
-        media_urls = strip_img_alt(media_urls)
-        self.client.PostUpdate(tweettxt, media=media_urls)
+        self.client.create_tweet(text=tweettxt, media_ids=media_ids)
 
     def dryRunPostEntry(self, entry, ctx):
         tweettxt = self.formatEntry(entry, limit=280,
@@ -89,6 +113,14 @@ class TwitterSilo(Silo):
         media_urls = strip_img_alt(media_urls)
         if media_urls:
             logger.info("...with photos: %s" % str(media_urls))
+
+    def _media_callback(self, tmpfile, mt, url, desc):
+        url_parsed = urllib.parse.urlparse(url)
+        fname = os.path.basename(url_parsed.path)
+        with open(tmpfile, 'rb') as tmpfp:
+            logger.debug("Uploading %s to twitter" % fname)
+            media = self.client.simple_upload(fname, file=tmpfp)
+        return media.media_id
 
 
 TWITTER_NETLOCS = ['twitter.com', 'www.twitter.com']

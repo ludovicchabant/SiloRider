@@ -7,14 +7,14 @@ name = "pypi"
 
 [packages]
 
-"mf2py" = "*"
 "mastodon.py" = "*"
 coloredlogs = "*"
-"mf2util" = "*"
 dateparser = "*"
+mf2py = "*"
+mf2util = "*"
 python-dateutil = "*"
-python-twitter = "*"
 ronkyuu = "*"
+tweepy = "*"
 
 
 [dev-packages]

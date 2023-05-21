@@ -1,4 +1,5 @@
 import pytest
+from .mockutil import mock_urllib
 
 
 def test_one_article(cli, feedutil, tweetmock):
@@ -67,7 +68,12 @@ def test_one_micropost_with_one_photo(cli, feedutil, tweetmock, monkeypatch):
     cli.setFeedConfig('feed', feed)
     tweetmock.installTokens(cli, 'test')
 
-    ctx, _ = cli.run('process')
+    with monkeypatch.context() as m:
+        import silorider.silos.twitter
+        mock_urllib(m)
+        m.setattr(silorider.silos.twitter.TwitterSilo, '_media_callback',
+                  _patched_media_callback)
+        ctx, _ = cli.run('process')
 
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.tweets[0]
@@ -88,7 +94,12 @@ def test_one_micropost_with_two_photos(cli, feedutil, tweetmock, monkeypatch):
     cli.setFeedConfig('feed', feed)
     tweetmock.installTokens(cli, 'test')
 
-    ctx, _ = cli.run('process')
+    with monkeypatch.context() as m:
+        import silorider.silos.twitter
+        mock_urllib(m)
+        m.setattr(silorider.silos.twitter.TwitterSilo, '_media_callback',
+                  _patched_media_callback)
+        ctx, _ = cli.run('process')
 
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.tweets[0]
@@ -98,10 +109,10 @@ def test_one_micropost_with_two_photos(cli, feedutil, tweetmock, monkeypatch):
 
 def test_micropost_with_long_text_and_link(cli, feedutil, tweetmock, monkeypatch):
     feed = cli.createTempFeed(feedutil.makeFeed(
-		"""<div class="p-name">
-	<p>This a pretty long text that has a link in it :) We want to make sure it gets to the limit of what Twitter allows, so that we can test there won't be any off-by-one errors in measurements. Here is a <a href="https://docs.python.org/3/library/textwrap.html">link to Python's textwrap module</a>, which is appropriate!!!</p>
-	</div>
-	<a class="u-url" href="/01234.html">permalink</a>"""
+        """<div class="p-name">
+    <p>This a pretty long text that has a link in it :) We want to make sure it gets to the limit of what Twitter allows, so that we can test there won't be any off-by-one errors in measurements. Here is a <a href="https://docs.python.org/3/library/textwrap.html">link to Python's textwrap module</a>, which is appropriate!!!</p>
+    </div>
+    <a class="u-url" href="/01234.html">permalink</a>"""
     ))
 
     cli.appendSiloConfig('test', 'twitter', url='/blah')
@@ -112,15 +123,15 @@ def test_micropost_with_long_text_and_link(cli, feedutil, tweetmock, monkeypatch
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.tweets[0]
     assert toot == ("This a pretty long text that has a link in it :) We want to make sure it gets to the limit of what Twitter allows, so that we can test there won't be any off-by-one errors in measurements. Here is a link to Python's textwrap module, which is appropriate!!! https://docs.python.org/3/library/textwrap.html",
-		[])
+            [])
 
 
 def test_micropost_with_too_long_text_and_link_1(cli, feedutil, tweetmock, monkeypatch):
     feed = cli.createTempFeed(feedutil.makeFeed(
-		"""<div class="p-name">
-	<p>This time we have a text that's slightly too long, with <a href="https://thisdoesntmatter.com">a link here</a>. We'll be one character too long, with a short word at the end to test the shortening algorithm. Otherwise, don't worry about it. Blah blah blah. Trying to get to the limit. Almost here yes</p>
-	</div>
-	<a class="u-url" href="/01234.html">permalink</a>"""
+        """<div class="p-name">
+    <p>This time we have a text that's slightly too long, with <a href="https://thisdoesntmatter.com">a link here</a>. We'll be one character too long, with a short word at the end to test the shortening algorithm. Otherwise, don't worry about it. Blah blah blah. Trying to get to the limit. Almost here yes</p>
+    </div>
+    <a class="u-url" href="/01234.html">permalink</a>"""
     ))
 
     cli.appendSiloConfig('test', 'twitter', url='/blah')
@@ -131,15 +142,15 @@ def test_micropost_with_too_long_text_and_link_1(cli, feedutil, tweetmock, monke
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.tweets[0]
     assert toot == ("This time we have a text that's slightly too long, with a link here. We'll be one character too long, with a short word at the end to test the shortening algorithm. Otherwise, don't worry about it. Blah blah blah. Trying to get to the limit. Almost here... /01234.html",
-		[])
+            [])
 
 
 def test_micropost_with_too_long_text_and_link_2(cli, feedutil, tweetmock, monkeypatch):
     feed = cli.createTempFeed(feedutil.makeFeed(
-		"""<div class="p-name">
-	<p>This time we have a text that's slightly too long, with <a href="https://thisdoesntmatter.com">a link here</a>. We'll be one character too long, with a loooooong word at the end to test the shortening algorithm. Otherwise, don't worry about it. Blah blah blah. Our long word is: califragilisticastuff</p>
-	</div>
-	<a class="u-url" href="/01234.html">permalink</a>"""
+        """<div class="p-name">
+    <p>This time we have a text that's slightly too long, with <a href="https://thisdoesntmatter.com">a link here</a>. We'll be one character too long, with a loooooong word at the end to test the shortening algorithm. Otherwise, don't worry about it. Blah blah blah. Our long word is: califragilisticastuff</p>
+    </div>
+    <a class="u-url" href="/01234.html">permalink</a>"""
     ))
 
     cli.appendSiloConfig('test', 'twitter', url='/blah')
@@ -150,7 +161,11 @@ def test_micropost_with_too_long_text_and_link_2(cli, feedutil, tweetmock, monke
     assert ctx.cache.wasPosted('test', '/01234.html')
     toot = ctx.silos[0].client.tweets[0]
     assert toot == ("This time we have a text that's slightly too long, with a link here. We'll be one character too long, with a loooooong word at the end to test the shortening algorithm. Otherwise, don't worry about it. Blah blah blah. Our long word is:... /01234.html",
-		[])
+            [])
+
+
+def _patched_media_callback(self, tmpfile, mt, url, desc):
+    return self.client.simple_upload(url)
 
 
 @pytest.fixture(scope='session')
@@ -169,9 +184,23 @@ class TwitterMock:
         assert access_token_secret == 'TEST_ACCESS_SECRET'
 
         self.tweets = []
+        self.media = []
 
-    def PostUpdate(self, tweet, media=None):
-        self.tweets.append((tweet, media))
+    def create_tweet(self, text, media_ids=None):
+        media_names = []
+        if media_ids:
+            for mid in media_ids:
+                assert(self.media[mid] is not None)
+                media_names.append(self.media[mid])
+                self.media[mid] = None
+        assert all([m is None for m in self.media])
+
+        self.tweets.append((text, media_names))
+        self.media = []
+
+    def simple_upload(self, fname, file=None):
+        self.media.append(fname)
+        return len(self.media) - 1
 
 
 class TwitterMockUtil:
