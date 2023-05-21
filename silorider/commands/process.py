@@ -1,4 +1,5 @@
 import logging
+import dateparser
 from .utils import get_named_silos, get_named_urls
 from ..silos.base import SiloPostingContext
 from ..parse import parse_url
@@ -38,10 +39,11 @@ class Processor:
         self.postProcess()
 
     def preProcess(self):
-        # Pre-parse the "since" date/time.
+        # Pre-parse the "since" and "until" dates/times.
         if self.ctx.args.since:
-            import dateparser
             self.ctx.args.since = dateparser.parse(self.ctx.args.since)
+        if self.ctx.args.until:
+            self.ctx.args.until = dateparser.parse(self.ctx.args.until)
 
         for silo in self.silos:
             silo.onPostStart(self.ctx)
@@ -63,9 +65,10 @@ class Processor:
         postctx = SiloPostingContext(self.ctx)
         no_cache = self.ctx.args.no_cache
         only_since = self.ctx.args.since
+        only_until = self.ctx.args.until
         logger.debug("Processing entry: %s" % entry_url)
         for silo in self.silos:
-            if only_since:
+            if only_since or only_until:
                 entry_dt = entry.get('published')
                 if not entry_dt:
                     logger.warning(
@@ -75,12 +78,18 @@ class Processor:
 
                 # Strip entry datetime's time-zone information if we
                 # don't have a time-zone info from the command line.
-                if not only_since.tzinfo:
+                if ((only_since and not only_since.tzinfo) or
+                    (only_until and not only_until.tzinfo)):
                     entry_dt = entry_dt.replace(tzinfo=None)
 
-                if entry_dt < only_since:
+                if only_since and entry_dt < only_since:
                     logger.info(
                         "Skipping entry older than specified date/time "
+                        "for %s: %s" % (silo.name, entry_url))
+                    continue
+                if only_until and entry_dt > only_until:
+                    logger.info(
+                        "Skipping entry newer than specified date/time "
                         "for %s: %s" % (silo.name, entry_url))
                     continue
 

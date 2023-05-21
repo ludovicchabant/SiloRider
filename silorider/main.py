@@ -61,6 +61,9 @@ def _setup_process(parser):
         '--since',
         help="Post entries since the specified date/time only.")
     parser.add_argument(
+        '--until',
+        help="Post entries until the specified date/time only.")
+    parser.add_argument(
         '--dry-run',
         action='store_true',
         help="Only report what would be posted, but don't post anything.")
