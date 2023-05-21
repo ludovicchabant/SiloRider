@@ -193,26 +193,30 @@ def _escape_percents(txt):
     return txt.replace('%', '%%')
 
 
+tags_valid_for_whitespace = {
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'p'
+}
+
+
 def _do_strip_html(elem, ctx):
     if isinstance(elem, bs4.NavigableString):
-        # Don't necessarily include this bit of text...
-        # If it belongs to a paragraph, include it. If not, include it
-        # only if there are not paragraphs in its siblings (because that
-        # means this is the white-space between the paragraph tags)
-        include_this = False
-        for parent in elem.parents:
-            if parent and parent.name == 'p':
-                include_this = True
-                break
-        else:
-            next_sib = next(elem.next_siblings, None)
-            prev_sib = next(elem.previous_siblings, None)
-            if ((prev_sib is None or prev_sib.name != 'p') and
-                (next_sib is None or next_sib.name != 'p')):
-                include_this = True
+        # We have some text.
+        # We generally include this text without any alteration except when
+        # the string is entirely whitespace. In that case, we only include
+        # it if it's inside a valid text tag like <p>. Otherwise, it's
+        # most likely whitespace inside html markup, such as indenting and
+        # newlines between html tags.
+        include_this = True
+        raw_txt = str(elem)
+        if raw_txt.isspace():
+            include_this = False
+            for p in elem.parents:
+                if p and p.name in tags_valid_for_whitespace:
+                    include_this = True
+                    break
 
         if include_this:
-            raw_txt = str(elem)
             return _escape_percents(ctx.processText(raw_txt))
         else:
             return ''
@@ -269,6 +273,16 @@ def _do_strip_html(elem, ctx):
                 outtxt += '- ' + _do_strip_html(c, ctx)
                 outtxt += '\n'
         return ctx.processText(outtxt)
+
+    if elem.name == 'p':
+        # Add a newline before starting a paragraph only if this isn't
+        # the first paragraph or piece of content.
+        p_txt = ''
+        if ctx.text_length > 0:
+            p_txt = '\n'
+        for c in elem.children:
+            p_txt += _do_strip_html(c, ctx)
+        return p_txt
 
     return ''.join([_do_strip_html(c, ctx) for c in elem.children])
 
