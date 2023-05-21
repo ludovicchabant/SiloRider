@@ -147,6 +147,14 @@ def _unsafe_main(args=None):
     for handler in root_logger.handlers:
         handler.setLevel(loglvl)
 
+    if args.verbose:
+        # Specifically don't enable debug logging for requests' OAuth
+        # lib because it prints out large chunks of binary payloads.
+        req_logger = logging.getLogger('requests_oauthlib')
+        req_logger.setLevel(logging.INFO)
+        for handler in req_logger.handlers:
+            handler.setLevel(logging.INFO)
+
     if not getattr(args, 'func', None):
         parser.print_help()
         return
