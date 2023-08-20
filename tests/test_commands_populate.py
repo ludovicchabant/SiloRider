@@ -44,7 +44,7 @@ def test_populate_until(cli):
     feed = cli.createTempFeed(feed2)
     cli.appendSiloConfig('test', 'print', items='name')
     cli.setFeedConfig('feed', feed)
-    ctx, _ = cli.run('populate', '-s', 'test', '--until', '2018-01-08')
+    ctx, _ = cli.run('populate', '-s', 'test', '--until', '2018-01-08 9AM')
     assert ctx.cache.wasPosted('test', 'https://example.org/first-article')
     assert ctx.cache.wasPosted('test', 'https://example.org/second-article')
     assert not ctx.cache.wasPosted('test', 'https://example.org/third-article')

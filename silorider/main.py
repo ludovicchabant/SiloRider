@@ -85,7 +85,7 @@ def _setup_populate(parser):
         help="Only populate the given silo(s).")
     parser.add_argument(
         '--until',
-        help="The date until which to populate the cache (included).")
+        help="The date until which to populate the cache (excluded).")
     parser.add_argument(
         '--dry-run',
         action='store_true',

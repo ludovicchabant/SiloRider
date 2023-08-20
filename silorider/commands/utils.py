@@ -1,4 +1,5 @@
 import logging
+import datetime
 from ..parse import parse_url
 
 
@@ -39,8 +40,9 @@ def populate_cache(ctx):
 
     until_dt = None
     if ctx.args.until:
-        until_dt = dateutil.parser.parse(ctx.args.until).date()
+        until_dt = dateutil.parser.parse(ctx.args.until)
         logger.debug("Populating cache until: %s" % until_dt)
+        until_dt = until_dt.timestamp()
 
     for url in urls:
         logger.info("Caching entries from %s" % url)
@@ -71,7 +73,10 @@ def _populate_cache_for_url(url, ctx, until_dt=None):
             if isinstance(entry_published, list):
                 entry_published = entry_published[0]
 
-            if entry_published and entry_published.date() > until_dt:
+            if entry_published and entry_published.timestamp() > until_dt:
+                logger.debug(
+                        "Skipping entry because it's later than the 'until' date: %s" %
+                        entry_published)
                 continue
 
         for silo in silos:
