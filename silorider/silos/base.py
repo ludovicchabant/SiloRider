@@ -93,10 +93,11 @@ def has_any_silo(config):
 
 def load_silos(config, cache):
     from .print import PrintSilo
+    from .bluesky import BlueskySilo
     from .mastodon import MastodonSilo
     from .twitter import TwitterSilo
     from .webmention import WebmentionSilo
-    silo_types = [PrintSilo, MastodonSilo, TwitterSilo, WebmentionSilo]
+    silo_types = [PrintSilo, BlueskySilo, MastodonSilo, TwitterSilo, WebmentionSilo]
     silo_dict = dict([(s.SILO_TYPE, s) for s in silo_types])
 
     silos = []
