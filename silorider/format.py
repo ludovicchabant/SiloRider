@@ -5,12 +5,15 @@ import bs4
 from .config import has_lxml
 
 
-def format_entry(entry, limit=None, add_url='auto', url_flattener=None):
+def format_entry(entry, limit=None, add_url='auto', url_flattener=None,
+                 url_mode=None):
     url = entry.url
 
     ctx = HtmlStrippingContext()
     if url_flattener:
         ctx.url_flattener = url_flattener
+    if url_mode is not None:
+        ctx.url_mode = url_mode
     # Don't add the limit yet.
 
     name = get_best_text(entry, ctx)
@@ -69,6 +72,7 @@ class _NullUrlFlattener(UrlFlattener):
 URLMODE_INLINE = 0
 URLMODE_LAST = 1
 URLMODE_BOTTOM_LIST = 2
+URLMODE_ERASE = 3
 
 class HtmlStrippingContext:
     def __init__(self):
@@ -85,6 +89,8 @@ class HtmlStrippingContext:
 
         # Accumulated text length when accounting for shortened URLs
         self.text_length = 0
+        # Same, but computed in bytes, as per UTF8 encoding
+        self.byte_length = 0
         # Whether limit was reached
         self.limit_reached = False
 
@@ -93,6 +99,7 @@ class HtmlStrippingContext:
         next_text_length = self.text_length + added_len
         if self.limit <= 0 or next_text_length <= self.limit:
             self.text_length = next_text_length
+            self.byte_length += len(txt.encode())
             return txt
 
         if allow_shorten:
@@ -104,6 +111,7 @@ class HtmlStrippingContext:
                 replace_whitespace=False,
                 placeholder="...")
             self.text_length += len(short_txt)
+            self.byte_length += len(short_txt.encode())
             self.limit_reached = True
             return short_txt
         else:
@@ -156,7 +164,7 @@ def strip_html(bs_elem, ctx=None):
     outtxt = outtxt % urls
     if ctx.limit_reached:
         return outtxt
-    if ctx.url_mode != URLMODE_INLINE and ctx.urls:
+    if ctx.urls:
         if ctx.url_mode == URLMODE_LAST:
             # Don't add unnecessary whitespace.
             # NOTE: our final measure of the text might be one character
@@ -174,18 +182,26 @@ def strip_html(bs_elem, ctx=None):
             else:
                 outtxt += '\n'
             outtxt += '\n'.join(ctx.urls)
+    # else, if url_mode is URLMODE_ERASE, don't do anything: we have
+    # removed the markers and don't need to add the URLs anywhere.
 
-    # Add the length of URLs to the text length.
-    for url in ctx.urls:
-        ctx.text_length += ctx.url_flattener.measureUrl(url)
-    # Add spaces and other extra characters to the text length.
-    if ctx.url_mode == URLMODE_INLINE:
-        # One space per URL except the explicitly no-space-urls.
-        ctx.text_length += len(ctx.urls) - len(ctx.nosp_urls)
-    else:
-        # One space or newline per URL.
-        ctx.text_length += len(ctx.urls)
-
+    if ctx.url_mode != URLMODE_ERASE:
+        # Add the length of URLs to the text length.
+        for url in ctx.urls:
+            url_len = ctx.url_flattener.measureUrl(url)
+            ctx.text_length += url_len
+            ctx.byte_length += url_len
+        # Add spaces and other extra characters to the text length.
+        if ctx.url_mode == URLMODE_INLINE:
+            # One space per URL except the explicitly no-space-urls.
+            added_spaces = len(ctx.urls) - len(ctx.nosp_urls)
+            ctx.text_length += added_spaces
+            ctx.byte_length += added_spaces
+        else:
+            # One space or newline per URL.
+            added_spaces = len(ctx.urls)
+            ctx.text_length += added_spaces
+            ctx.byte_length += added_spaces
     return outtxt
 
 
@@ -226,27 +242,36 @@ def _do_strip_html(elem, ctx):
             href = elem['href']
         except KeyError:
             href = None
+
+        # Get the text under the hyperlink.
         cnts = list(elem.contents)
         if len(cnts) == 1:
-            # Use the URL flattener to reformat the hyperlink.
-            href_txt = cnts[0].string
-            old_text_length = ctx.text_length
-            href_flattened = ctx.url_flattener.replaceHref(href_txt, href, ctx)
-            if href_flattened is not None:
-                # We have a reformatted URL. Use that, but check if the
-                # flattener computed a custom text length. If not, do the
-                # standard computation.
-                if ctx.text_length == old_text_length:
-                    return ctx.processText(href_flattened, False)
-                return href_flattened
+            a_txt = cnts[0].string
+        else:
+            a_txt = ''.join([_do_strip_html(c, ctx)
+                             for c in cnts])
 
-            # If we have a simple hyperlink where the text is a substring of
-            # the target URL, just return the URL.
-            if href_txt in href:
+        # Use the URL flattener to reformat the hyperlink.
+        old_text_length = ctx.text_length
+        href_flattened = ctx.url_flattener.replaceHref(a_txt, href, ctx)
+        if href_flattened is not None:
+            # We have a reformatted URL. Use that, but check if the
+            # flattener computed a custom text length. If not, do the
+            # standard computation.
+            if ctx.text_length == old_text_length:
+                return ctx.processText(href_flattened, False)
+            return href_flattened
+
+        # If we have a simple hyperlink where the text is a substring of
+        # the target URL, just return the URL.
+        if a_txt in href:
+            if ctx.url_mode != URLMODE_ERASE:
                 a_txt = '%%(url:%d)s' % len(ctx.urls)
                 ctx.nosp_urls.append(len(ctx.urls))
                 ctx.urls.append(href)
                 # No text length to add.
+                return a_txt
+            else:
                 return a_txt
 
         # No easy way to simplify this hyperlink... let's put a marker
