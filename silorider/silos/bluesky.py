@@ -66,11 +66,12 @@ class BlueskySilo(Silo):
             logger.info("Authenticating client app with Bluesky for %s" %
                         self.ctx.silo_name)
             email = input("Email: ")
+            self.setCacheItem('email', email)
+
             password = getpass.getpass(prompt="Application password: ")
             profile = self.client.login(email, password)
 
-            logger.info("Authenticated as %s" % profile.displayName)
-            self.setCacheItem('email', email)
+            logger.info("Authenticated as %s" % profile.display_name)
             self.setCacheItem('password', password)
 
     def onPostStart(self, ctx):
