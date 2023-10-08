@@ -5,8 +5,8 @@ import urllib.parse
 import getpass
 import logging
 import datetime
-from .base import Silo, upload_silo_media
-from ..format import UrlFlattener, URLMODE_ERASE
+from .base import Silo
+from ..format import CardProps, UrlFlattener, URLMODE_ERASE
 
 import atproto
 import atproto.xrpc_client.models as atprotomodels
@@ -19,7 +19,7 @@ class _BlueskyClient(atproto.Client):
     def __init__(self, *args, **kwargs):
         atproto.Client.__init__(self, *args, **kwargs)
 
-    def send_post(self, text, embed=None, facets=None):
+    def send_post(self, text, *, post_datetime=None, embed=None, facets=None):
         # Override the atproto.Client send_post function because it
         # doesn't support facets yet. The code is otherwise more or
         # less identical.
@@ -73,30 +73,43 @@ class BlueskySilo(Silo):
                                 self.ctx.silo_name)
             self.client.login(email, password)
 
-    def postEntry(self, entry, ctx):
+    def getEntryCard(self, entry, ctx):
         # We use URLMODE_ERASE to remove all hyperlinks from the
         # formatted text, and we later add them as facets to the atproto
         # record.
         url_flattener = BlueskyUrlFlattener()
-        posttxt = self.formatEntry(
+        card = self.formatEntry(
             entry,
-            limit=256,
+            limit=300,
+            # Use Twitter's meta properties
+            card_props=CardProps('name', 'twitter'),
             url_flattener=url_flattener,
             url_mode=URLMODE_ERASE)
-        if not posttxt:
-            raise Exception("Can't find any content to use for the post!")
+        card.__bsky_url_flattener = url_flattener
+        return card
 
-        # Upload the images as blobs and add them as an embed on the
-        # atproto record.
-        images = upload_silo_media(entry, 'photo', self._media_callback)
+    def mediaCallback(self, tmpfile, mt, url, desc):
+        with open(tmpfile, 'rb') as tmpfp:
+            data = tmpfp.read()
 
+        logger.debug("Uploading image to Bluesky (%d bytes) with description: %s" %
+                     (len(data), desc))
+        upload = self.client.com.atproto.repo.upload_blob(data)
+
+        if desc is None:
+            desc = ""
+        return atprotomodels.AppBskyEmbedImages.Image(alt=desc, image=upload.blob)
+
+    def postEntry(self, entry_card, media_ids, ctx):
+        # Add images as an embed on the atproto record.
         embed = None
-        if images:
-            embed = atprotomodels.AppBskyEmbedImages.Main(images=images)
+        if media_ids:
+            embed = atprotomodels.AppBskyEmbedImages.Main(images=media_ids)
 
         # Grab any URLs detected by our URL flattener and add them as
         # facets on the atproto record.
         facets = None
+        url_flattener = entry_card.__bsky_url_flattener
         if url_flattener.urls:
             facets = []
             for url_info in url_flattener.urls:
@@ -113,27 +126,10 @@ class BlueskySilo(Silo):
                 facets.append(facet)
 
         # Create the record!
-        self.client.send_post(text=posttxt, embed=embed, facets=facets)
-
-    def dryRunPostEntry(self, entry, ctx):
-        posttxt = self.formatEntry(entry, limit=256)
-        logger.info("Post would be:")
-        logger.info(posttxt)
-        media_urls = entry.get('photo', [], force_list=True)
-        if media_urls:
-            logger.info("...with photos: %s" % str(media_urls))
-
-    def _media_callback(self, tmpfile, mt, url, desc):
-        with open(tmpfile, 'rb') as tmpfp:
-            data = tmpfp.read()
-
-        logger.debug("Uploading image to Bluesky (%d bytes) with description: %s" %
-                     (len(data), desc))
-        upload = self.client.com.atproto.repo.upload_blob(data)
-
-        if desc is None:
-            desc = ""
-        return atprotomodels.AppBskyEmbedImages.Image(alt=desc, image=upload.blob)
+        entry_dt = entry_card.entry.get('published')
+        self.client.send_post(
+                text=entry_card.text, post_datetime=entry_dt, embed=embed,
+                facets=facets)
 
 
 BLUESKY_NETLOC = 'bsky.app'

@@ -81,10 +81,10 @@ def test_strip_html_with_bottom_urls(text, expected):
      'words in it for no good reason', 80, True,
      'A test entry that is very very long because its... ' + test_url)
 ])
-def test_format_lonform_entry(title, limit, add_url, expected):
+def test_format_longform_entry(title, limit, add_url, expected):
     entry = _make_test_entry(title, False)
-    actual = format_entry(entry, limit, add_url)
-    assert actual == expected
+    actual = format_entry(entry, limit=limit, add_url=add_url)
+    assert actual.text == expected
 
 
 @pytest.mark.parametrize("text, limit, add_url, expected", [
@@ -109,5 +109,5 @@ def test_format_lonform_entry(title, limit, add_url, expected):
 ])
 def test_format_micropost_entry(text, limit, add_url, expected):
     entry = _make_test_entry(text, True)
-    actual = format_entry(entry, limit, add_url)
-    assert actual == expected
+    actual = format_entry(entry, limit=limit, add_url=add_url)
+    assert actual.text == expected

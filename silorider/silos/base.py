@@ -23,6 +23,10 @@ class SiloContextBase:
         return self.exec_ctx.args
 
     @property
+    def dry_run(self):
+        return self.exec_ctx.args.dry_run
+
+    @property
     def config(self):
         return self.exec_ctx.config
 
@@ -73,11 +77,21 @@ class Silo:
     def onPostStart(self, ctx):
         pass
 
-    def postEntry(self, entry, ctx):
+    def getEntryCard(self, entry, ctx):
         raise NotImplementedError()
 
-    def dryRunPostEntry(self, entry, ctx):
-        pass
+    def mediaCallback(self, tmpfile, mimetype, url, desc):
+        raise NotImplementedError()
+
+    def postEntry(self, entry_card, media_ids, ctx):
+        raise NotImplementedError()
+
+    def dryRunMediaCallback(self, tmpfile, mimetype, url, desc):
+        return (url, desc)
+
+    def dryRunPostEntry(self, entry_card, media_ids, ctx):
+        logger.info(entry_card.text)
+        logger.info("...with photos: %s" % media_ids)
 
     def onPostEnd(self, ctx):
         pass
@@ -120,11 +134,19 @@ def load_silos(config, cache):
     return silos
 
 
-def upload_silo_media(entry, propname, callback):
+def upload_silo_media(card, propname, callback):
     # The provided callback must take the parameters:
     #  tmpfile path, mimetype, original media url, media description
+
+    # Upload and use forced image, if any.
+    if card.image:
+        mid = _do_upload_silo_media(card.image, None, callback)
+        if mid is not None:
+            return [mid]
+
+    # Look for media in the body of the original post.
     media_ids = None
-    media_entries = entry.get(propname, [], force_list=True)
+    media_entries = card.entry.get(propname, [], force_list=True)
     if media_entries:
         media_ids = []
         for media_entry in media_entries:
@@ -132,6 +154,7 @@ def upload_silo_media(entry, propname, callback):
             mid = _do_upload_silo_media(url, desc, callback)
             if mid is not None:
                 media_ids.append(mid)
+
     return media_ids
 
 

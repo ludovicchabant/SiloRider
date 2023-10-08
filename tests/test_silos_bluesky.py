@@ -167,7 +167,7 @@ class BlueskyMock:
         self.blobs.append((tmpfile, desc))
         return len(self.blobs)
 
-    def send_post(self, text, embed=None, facets=None):
+    def send_post(self, text, post_datetime=None, embed=None, facets=None):
         self.posts.append((text, embed, facets))
 
 

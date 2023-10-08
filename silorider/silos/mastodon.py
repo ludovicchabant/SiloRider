@@ -2,7 +2,8 @@ import time
 import getpass
 import logging
 import mastodon
-from .base import Silo, upload_silo_media
+from .base import Silo
+from ..format import CardProps
 
 
 logger = logging.getLogger(__name__)
@@ -110,20 +111,26 @@ class MastodonSilo(Silo):
             access_token=access_token,
             api_base_url=self.base_url)
 
-    def postEntry(self, entry, ctx):
-        toottxt = self.formatEntry(entry, limit=500)
-        if not toottxt:
-            raise Exception("Can't find any content to use for the toot!")
+    def getEntryCard(self, entry, ctx):
+        return self.formatEntry(
+                entry, limit=500,
+                # Use Twitter's meta properties
+                card_props=CardProps('name', 'twitter'))
 
+    def mediaCallback(self, tmpfile, mt, url, desc):
+        with open(tmpfile, 'rb') as tmpfp:
+            logger.debug("Uploading to mastodon with description: %s" % desc)
+            return self.client.media_post(
+                    tmpfp, mime_type=mt, description=desc)
+
+    def postEntry(self, entry_card, media_ids, ctx):
         visibility = self.getConfigItem('toot_visibility', fallback='public')
 
-        media_ids = upload_silo_media(entry, 'photo', self._media_callback)
-
         tries_left = 5
-        logger.debug("Posting toot: %s" % toottxt)
+        logger.debug("Posting toot: %s" % entry_card.text)
         while tries_left > 0:
             try:
-                self.client.status_post(toottxt, media_ids=media_ids,
+                self.client.status_post(entry_card.text, media_ids=media_ids,
                                         visibility=visibility)
                 break # if we got here without an exception, it's all good!
             except mastodon.MastodonAPIError as merr:
@@ -140,16 +147,3 @@ class MastodonSilo(Silo):
                     continue
                 raise
 
-    def dryRunPostEntry(self, entry, ctx):
-        toottxt = self.formatEntry(entry, limit=500)
-        logger.info("Toot would be:")
-        logger.info(toottxt)
-        media_urls = entry.get('photo', [], force_list=True)
-        if media_urls:
-            logger.info("...with photos: %s" % str(media_urls))
-
-    def _media_callback(self, tmpfile, mt, url, desc):
-        with open(tmpfile, 'rb') as tmpfp:
-            logger.debug("Uploading to mastodon with description: %s" % desc)
-            return self.client.media_post(
-                    tmpfp, mime_type=mt, description=desc)

@@ -2,8 +2,8 @@ import os.path
 import logging
 import tweepy
 import urllib.parse
-from .base import Silo, upload_silo_media
-from ..format import UrlFlattener
+from .base import Silo
+from ..format import CardProps, UrlFlattener
 from ..parse import strip_img_alt
 
 
@@ -93,34 +93,23 @@ class TwitterSilo(Silo):
             access_token_key=access_key,
             access_token_secret=access_secret)
 
-    def postEntry(self, entry, ctx):
-        tweettxt = self.formatEntry(entry, limit=280,
-                                    url_flattener=TwitterUrlFlattener())
-        if not tweettxt:
-            raise Exception("Can't find any content to use for the tweet!")
+    def getEntryCard(self, entry, ctx):
+        return self.formatEntry(
+                entry,
+                limit=280,
+                card_props=CardProps('name', 'twitter'),
+                url_flattener=TwitterUrlFlattener())
 
-        media_ids = upload_silo_media(entry, 'photo', self._media_callback)
-
-        logger.debug("Posting tweet: %s" % tweettxt)
-        self.client.create_tweet(text=tweettxt, media_ids=media_ids)
-
-    def dryRunPostEntry(self, entry, ctx):
-        tweettxt = self.formatEntry(entry, limit=280,
-                                    url_flattener=TwitterUrlFlattener())
-        logger.info("Tweet would be:")
-        logger.info(tweettxt)
-        media_urls = entry.get('photo', [], force_list=True)
-        media_urls = strip_img_alt(media_urls)
-        if media_urls:
-            logger.info("...with photos: %s" % str(media_urls))
-
-    def _media_callback(self, tmpfile, mt, url, desc):
+    def mediaCallback(self, tmpfile, mt, url, desc):
         url_parsed = urllib.parse.urlparse(url)
         fname = os.path.basename(url_parsed.path)
         with open(tmpfile, 'rb') as tmpfp:
             logger.debug("Uploading %s to twitter" % fname)
             media = self.client.simple_upload(fname, file=tmpfp)
         return media.media_id
+
+    def postEntry(self, entry_card, media_ids, ctx):
+        self.client.create_tweet(text=entry_card.text, media_ids=media_ids)
 
 
 TWITTER_NETLOCS = ['twitter.com', 'www.twitter.com']

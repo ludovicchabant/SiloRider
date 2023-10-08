@@ -1,7 +1,7 @@
 import logging
 import dateparser
 from .utils import get_named_silos, get_named_urls
-from ..silos.base import SiloPostingContext
+from ..silos.base import SiloPostingContext, upload_silo_media
 from ..parse import parse_url
 
 
@@ -98,9 +98,20 @@ class Processor:
                              (silo.name, entry_url))
                 continue
 
+            entry_card = silo.getEntryCard(entry, postctx)
+            if not entry_card:
+                logger.error("Can't find any content to use for entry: %s" % entry_url)
+                continue
+
+            media_callback = silo.mediaCallback
+            if self.ctx.args.dry_run:
+                media_callback = silo.dryRunMediaCallback
+            media_ids = upload_silo_media(entry_card, 'photo', media_callback)
+
             if not self.ctx.args.dry_run:
+                logger.debug("Posting to '%s': %s" % (silo.name, entry_url))
                 try:
-                    did_post = silo.postEntry(entry, postctx)
+                    did_post = silo.postEntry(entry_card, media_ids, postctx)
                 except Exception as ex:
                     did_post = False
                     logger.error("Error posting: %s" % entry_url)
@@ -110,9 +121,8 @@ class Processor:
                 if did_post is True or did_post is None:
                     self.ctx.cache.addPost(silo.name, entry_url)
             else:
-                logger.info("Would post entry on %s: %s" %
-                            (silo.name, entry_url))
-                silo.dryRunPostEntry(entry, postctx)
+                logger.info("Would post to '%s': %s" % (silo.name, entry_url))
+                silo.dryRunPostEntry(entry_card, media_ids, postctx)
 
     def isEntryFiltered(self, entry):
         if not self.config.has_section('filter'):

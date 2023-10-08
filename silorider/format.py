@@ -1,12 +1,17 @@
 import re
 import string
+import logging
+import urllib.request
 import textwrap
 import bs4
 from .config import has_lxml
 
 
-def format_entry(entry, limit=None, add_url='auto', url_flattener=None,
-                 url_mode=None):
+logger = logging.getLogger(__name__)
+
+
+def format_entry(entry, *, limit=None, card_props=None,
+                 add_url='auto', url_flattener=None, url_mode=None):
     url = entry.url
 
     ctx = HtmlStrippingContext()
@@ -16,10 +21,24 @@ def format_entry(entry, limit=None, add_url='auto', url_flattener=None,
         ctx.url_mode = url_mode
     # Don't add the limit yet.
 
-    name = get_best_text(entry, ctx)
-    if not name:
+    card = None
+
+    # See if we can use a nice blurb for articles instead of their title.
+    if card_props and not entry.is_micropost:
+         card = get_card_info(entry, card_props, ctx)
+
+    # Otherwise, find the best text, generally the title of the article, or the
+    # text of the micropost.
+    if card is None:
+        best_text = get_best_text(entry, ctx)
+        if best_text:
+            card = CardInfo(entry, best_text, None, 'best_text')
+
+    if not card:
         raise Exception("Can't find best text for entry: %s" % url)
 
+    # We need to add the URL to the output if we were told to, or if we
+    # are dealing with an article.
     do_add_url = ((add_url is True) or
                   (add_url == 'auto' and not entry.is_micropost))
     if limit:
@@ -31,26 +50,47 @@ def format_entry(entry, limit=None, add_url='auto', url_flattener=None,
 
         shortened = text_length > limit
         if shortened:
-            # We need to shorten the text! We can't really reason about it
-            # anymore at this point because we could have URLs inside the
-            # text that don't measure the correct number of characters
-            # (such as with Twitter's URL shortening). Let's just start
-            # again with a limit that's our max limit, minus the room
-            # needed to add the link to the post.
             if not do_add_url and add_url == 'auto' and url:
                 do_add_url = True
                 limit -= 1 + ctx.url_flattener.measureUrl(url)
 
-            ctx = HtmlStrippingContext()
-            ctx.limit = limit
-            if url_flattener:
-                ctx.url_flattener = url_flattener
-            name = get_best_text(entry, ctx)
+            if card.is_from == 'best_text':
+                # We need to shorten the text! We can't really reason about it
+                # anymore at this point because we could have URLs inside the
+                # text that don't measure the correct number of characters
+                # (such as with Twitter's URL shortening). Let's just start
+                # again with a limit that's our max limit, minus the room
+                # needed to add the link to the post.
+                ctx = HtmlStrippingContext()
+                ctx.limit = limit
+                if url_flattener:
+                    ctx.url_flattener = url_flattener
+                card.text = get_best_text(entry, ctx)
+            else:
+                # We need to shorten the blurb! We can't do much else besides
+                # truncate it...
+                card.text = card.text[:limit]
 
     # Actually add the url to the original post now.
     if do_add_url and url:
-        name += ' ' + url
-    return name
+        card.text += ' ' + url
+    return card
+
+
+class CardProps:
+    def __init__(self, meta_attr, namespace):
+        self.meta_attr = meta_attr
+        self.namespace = namespace
+        self.description = '%s:description' % namespace
+        self.image = '%s:image' % namespace
+
+
+class CardInfo:
+    def __init__(self, entry, txt, img, from_label=None):
+        self.entry = entry
+        self.text = txt
+        self.image = img
+        self.is_from = from_label
 
 
 class UrlFlattener:
@@ -132,6 +172,28 @@ def get_best_text(entry, ctx=None, *, plain=True):
             return str(text)
         return strip_html(elem, ctx)
 
+    return None
+
+
+def get_card_info(entry, card_props, ctx):
+    logger.debug("Downloading entry page to check meta entries: %s" % entry.url)
+    with urllib.request.urlopen(entry.url) as req:
+        raw_html = req.read()
+
+    bs_html = bs4.BeautifulSoup(raw_html,
+            'lxml' if has_lxml else 'html5lib')
+    head = bs_html.find('head')
+
+    desc_meta = head.find('meta', attrs={card_props.meta_attr: card_props.description})
+    desc = desc_meta.attrs.get('content') if desc_meta else None
+
+    img_meta = head.find('meta', attrs={card_props.meta_attr: card_props.image})
+    img = img_meta.attrs.get('content') if img_meta else None
+
+    if desc:
+        logger.debug("Found card info, description: %s (image: %s)" % (desc, img))
+        ctx.text_length = len(desc)
+        return CardInfo(entry, desc, img, 'card')
     return None
 
 
