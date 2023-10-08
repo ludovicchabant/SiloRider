@@ -17,6 +17,7 @@ install_requires = [
     'mf2py>=1.1.0',
     'mf2util>=0.5.0',
     'python-dateutil>=2.7.0',
+    'python-facebook-api>=0.17.1',
     'python-twitter>=3.4.0',
     'ronkyuu>=0.6',
     'tweepy>=4.14.0'

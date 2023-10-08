@@ -7,6 +7,7 @@ charset-normalizer==3.1.0
 coloredlogs==15.0.1
 dateparser==1.1.8
 decorator==5.1.1
+facebook-sdk==3.1.0
 html5lib==1.1
 humanfriendly==10.0
 idna==3.4
