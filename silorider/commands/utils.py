@@ -1,5 +1,5 @@
 import logging
-import datetime
+import dateutil.parser
 from ..parse import parse_url
 
 
@@ -11,9 +11,9 @@ def get_named_urls(config, names):
     if config.has_section('urls'):
         named_urls = config.items('urls')
     if not names:
-        return [url for (_, url) in named_urls]
+        return named_urls
 
-    return [url for (name, url) in named_urls
+    return [(name, url) for (name, url) in named_urls
             if name in names]
 
 
@@ -34,9 +34,7 @@ def get_named_silos(silos, names):
 
 
 def populate_cache(ctx):
-    import dateutil.parser
-
-    urls = get_named_urls(ctx.config, ctx.args.url)
+    named_urls = get_named_urls(ctx.config, ctx.args.url)
 
     until_dt = None
     if ctx.args.until:
@@ -44,15 +42,15 @@ def populate_cache(ctx):
         logger.debug("Populating cache until: %s" % until_dt)
         until_dt = until_dt.timestamp()
 
-    for url in urls:
+    for name, url in named_urls:
         logger.info("Caching entries from %s" % url)
-        _populate_cache_for_url(url, ctx, until_dt=until_dt)
+        _populate_cache_for_url(name, url, ctx, until_dt=until_dt)
 
 
-def _populate_cache_for_url(url, ctx, until_dt=None):
+def _populate_cache_for_url(name, url, ctx, until_dt=None):
     silos = get_named_silos(ctx.silos, ctx.args.silo)
 
-    feed = parse_url(url)
+    feed = parse_url(url, name, ctx.config)
 
     for entry in feed.entries:
         entry_url = entry.get('url')

@@ -9,15 +9,16 @@ logger = logging.getLogger(__name__)
 
 
 def process_urls(ctx):
-    for url in get_named_urls(ctx.config, ctx.args.url):
+    for name, url in get_named_urls(ctx.config, ctx.args.url):
         logger.info("Processing %s" % url)
-        p = Processor(ctx, url)
+        p = Processor(ctx, name, url)
         p.process()
 
 
 class Processor:
-    def __init__(self, ctx, url):
+    def __init__(self, ctx, name, url):
         self.ctx = ctx
+        self.name = name
         self.url = url
         self._silos = get_named_silos(ctx.silos, ctx.args.silo)
 
@@ -32,7 +33,7 @@ class Processor:
     def process(self):
         self.preProcess()
 
-        feed = parse_url(self.url)
+        feed = parse_url(self.url, self.name, self.config)
         for entry in feed.entries:
             self.processEntry(entry)
 

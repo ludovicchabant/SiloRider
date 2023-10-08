@@ -1,13 +1,28 @@
 import os.path
 import logging
-import datetime
+import configparser
+import urllib.request
+import bs4
+import mf2py
+import dateutil.parser
+from datetime import datetime, date, timezone, timedelta
+from .config import has_lxml
 
 
 logger = logging.getLogger(__name__)
 
+default_dt = datetime.fromtimestamp(0, tz=timezone(timedelta(0)))
 
-def parse_url(url_or_path):
-    mf_obj = parse_mf2(url_or_path)
+
+def _get_entry_published_dt(entry):
+    dt = entry.get('published', default_dt)
+    if isinstance(dt, date):
+        dt = datetime.combine(dt, datetime.now().time())
+    return dt
+
+
+def parse_url(url_or_path, name, config):
+    mf_obj = parse_mf2(url_or_path, name, config)
     matcher = EntryMatcher(mf_obj.to_dict(), mf_obj.__doc__)
 
     feed = Feed(url_or_path, matcher.mf_dict)
@@ -26,26 +41,79 @@ def parse_url(url_or_path):
 
     sorted_entries = sorted(
         entries,
-        key=lambda e: e.get(
-            'published', datetime.datetime.fromtimestamp(
-                0,
-                tz=datetime.timezone(datetime.timedelta(0)))),
+        key=_get_entry_published_dt,
         reverse=False)
 
     feed.entries = sorted_entries
+    logger.debug("Parsed %d entries for: %s" % (len(sorted_entries), url_or_path))
     return feed
 
 
-def parse_mf2(url_or_path):
-    import mf2py
-    logger.debug("Fetching %s..." % url_or_path)
+def parse_mf2(url_or_path, name, config):
+    # Get the URL or file contents.
+    logger.debug("Fetching %s" % url_or_path)
     if os.path.exists(url_or_path):
-        obj = open(url_or_path, 'r', encoding='utf8')
-        params = {'doc': obj}
+        with open(url_or_path, 'r', encoding='utf8') as fp:
+            html_raw = fp.read()
     else:
-        params = {'url': url_or_path}
+        with urllib.request.urlopen(url_or_path) as req:
+            html_raw = req.read()
+
+    # Load this into an HTML document and optionally patch it.
+    html_doc = bs4.BeautifulSoup(
+            html_raw,
+            'lxml' if has_lxml else 'html5lib')
+    _modify_html_doc(html_doc, name, config)
+
+    # Parse the microformats!
     return mf2py.Parser(
-            html_parser='html5lib', img_with_alt=True, **params)
+            doc=html_doc,
+            html_parser='html5lib',
+            img_with_alt=True)
+
+
+def _modify_html_doc(doc, name, config):
+    try:
+        class_mods = config.items('classes:%s' % name)
+    except configparser.NoSectionError:
+        return
+
+    logger.debug("Modifying HTML doc:")
+    for selector, to_add in class_mods:
+        elems = list(doc.select(selector))
+        if not elems:
+            logger.warning("No elements matched by rule: %s" % selector)
+            continue
+        for elem in elems:
+            logger.debug("Adding %s to %s" % (to_add, elem.name))
+            if to_add == 'dt-published':
+                _insert_html_datetime_published(doc, elem)
+            else:
+                if 'class' not in elem.attrs:
+                    elem['class'] = []
+                elem['class'].append(to_add)
+
+
+def _insert_html_datetime_published(doc, elem):
+    dt_str = str(elem.string)
+    try:
+        dt = dateutil.parser.parse(dt_str)
+    except dateutil.parser.ParseError as err:
+        logger.error("Can't parse published date: %s" % err)
+        return
+
+    if dt.hour == 0 and dt.minute == 0 and dt.second == 0:
+        now_time = datetime.now().time()
+        dt = datetime.combine(dt.date(), now_time)
+
+    time_el = doc.new_tag('time')
+    time_el['class'] = ['dt-published']
+    time_el['datetime'] = dt.isoformat(' ', 'seconds')
+    time_el.append(dt_str)
+
+    elem.clear()
+    elem.append(time_el)
+    logger.debug("Adding datetime attribute: %s" % dt)
 
 
 class InvalidEntryException(Exception):
@@ -155,24 +223,42 @@ class EntryMatcher:
         next_el = {}
 
         items = mf_dict.get('items', [])
-        if len(items) == 1 and items[0]['type'][0] == 'h-feed':
-            items = items[0].get('children', [])
-
-        for e in items:
-            types = e.get('type')
-            if not types:
+        for item in items:
+            item_types = item.get('type', [])
+            if 'h-feed' not in item_types:
                 continue
 
-            entry_type = types[0]
-            if entry_type not in els_by_type:
-                ebt = list(bf_doc.find_all(class_=entry_type))
-                els_by_type[entry_type] = ebt
-                next_el[entry_type] = 0
+            children = item.get('children', [])
+            logger.debug("Matching %d feed items" % len(children))
+            for e in children:
+                e_types = e.get('type')
+                if not e_types:
+                    continue
 
-            els = els_by_type[entry_type]
-            e_and_el = (e, els[next_el[entry_type]])
-            self.entries.append(e_and_el)
-            next_el[entry_type] += 1
+                # We only look at the first type on any element.
+                entry_type = e_types[0]
+
+                # Get the list of all elements of that type from the doc.
+                if entry_type not in els_by_type:
+                    ebt = list(bf_doc.find_all(class_=entry_type))
+                    els_by_type[entry_type] = ebt
+                    next_el[entry_type] = 0
+                    if len(ebt) == 0:
+                        logger.warning("Found no elements of type: %s" % entry_type)
+
+                # We figure that mf2py found elements in the same order as
+                # they are found in the document, so we associate the two
+                # in order.
+                els = els_by_type[entry_type]
+                try:
+                    e_and_el = (e, els[next_el[entry_type]])
+                    self.entries.append(e_and_el)
+                except IndexError:
+                    logger.error(
+                            "Ran out of elements in document! Found %d elements "
+                            "of type '%s' but was trying to get element %d" %
+                            (len(els), str(e_types), next_el[entry_type]))
+                next_el[entry_type] += 1
 
 
 def strip_img_alt(photos):
