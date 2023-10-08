@@ -10,13 +10,16 @@ def read(fname):
 long_description = read('README.rst')
 
 install_requires = [
+    'atproto>=0.0.29',
     'coloredlogs>=10.0',
+    'dateparser>=1.1.8',
     'Mastodon.py>=1.3.0',
     'mf2py>=1.1.0',
     'mf2util>=0.5.0',
     'python-dateutil>=2.7.0',
     'python-twitter>=3.4.0',
-    'ronkyuu>=0.6'
+    'ronkyuu>=0.6',
+    'tweepy>=4.14.0'
 ]
 
 tests_require = [
