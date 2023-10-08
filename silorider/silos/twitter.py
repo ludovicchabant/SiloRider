@@ -44,23 +44,29 @@ class TwitterSilo(Silo):
     def authenticate(self, ctx):
         force = ctx.exec_ctx.args.force
 
+        # Get the app info tokens.
         client_token = self.getCacheItem('clienttoken')
         if not client_token or force:
-            logger.info("Please enter Twitter consumer tokens for %s:" %
+            logger.info("Please enter consumer tokens (aka API tokens) for %s:" %
                         self.ctx.silo_name)
             consumer_key = input("Consumer Key: ")
             consumer_secret = input("Consumer Secret: ")
             client_token = '%s,%s' % (consumer_key, consumer_secret)
             self.setCacheItem('clienttoken', client_token)
 
+        # Generate an access token by making the user login and authorize
+        # our app.
         access_token = self.getCacheItem('accesstoken')
         if not access_token or force:
-            logger.info("Please enter Twitter access tokens for %s:" %
-                        self.ctx.silo_name)
+            self._ensureClient()
+            auth_url = self.client.v1.auth.get_authorization_url()
+            logger.info("Please authorize SiloRider with Twitter for %s at: %s" %
+                        (self.ctx.silo_name, auth_url))
+            logger.info("And then enter the OAuth verifier token here:")
+            verifier_token = input("Verifier Token:")
 
-            access_key = input("Access Token: ")
-            access_secret = input("Access Token Secret: ")
-
+            access_key, access_secret = self.client.v1.auth.get_access_token(
+                verifier_token)
             access_token = '%s,%s' % (access_key, access_secret)
             self.setCacheItem('accesstoken', access_token)
 
