@@ -166,7 +166,6 @@ class BlueskyUrlFlattener(UrlFlattener):
         start = ctx.byte_length
         end = start + len(text.encode())
         self.urls.append((start, end, raw_url))
-        print("Gathered link: ", start, end, raw_url)
 
         # Always keep the text as-is.
         return text
