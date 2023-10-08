@@ -25,11 +25,20 @@ class _BlueskyClient(atproto.Client):
         # less identical.
         repo = self.me.did
         langs = [atprotomodels.languages.DEFAULT_LANGUAGE_CODE1]
+
+        # Make sure we have a proper time zone.
+        post_datetime = post_datetime or datetime.datetime.now()
+        if not post_datetime.tzinfo:
+            tz_dt = datetime.datetime.now().astimezone()
+            post_datetime = post_datetime.replace(tzinfo=tz_dt.tzinfo)
+        created_at = post_datetime.isoformat()
+
+        # Do it!
         data = atprotomodels.ComAtprotoRepoCreateRecord.Data(
                 repo=repo,
                 collection=atprotomodels.ids.AppBskyFeedPost,
                 record=atprotomodels.AppBskyFeedPost.Main(
-                    createdAt=datetime.datetime.now().isoformat(),
+                    createdAt=created_at,
                     text=text,
                     facets=facets,
                     embed=embed,
