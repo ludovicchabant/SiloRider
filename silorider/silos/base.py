@@ -1,5 +1,9 @@
+import os
+import os.path
+import uuid
 import urllib.request
 import logging
+import tempfile
 import mimetypes
 from ..format import format_entry
 
@@ -87,11 +91,13 @@ class Silo:
         raise NotImplementedError()
 
     def dryRunMediaCallback(self, tmpfile, mimetype, url, desc):
+        logger.info("Would upload photo: %s (%s)" % (url, desc))
         return (url, desc)
 
     def dryRunPostEntry(self, entry_card, media_ids, ctx):
         logger.info(entry_card.text)
-        logger.info("...with photos: %s" % media_ids)
+        if media_ids:
+            logger.info("...with photos: %s" % media_ids)
 
     def onPostEnd(self, ctx):
         pass
@@ -144,28 +150,29 @@ def load_silos(config, cache):
 def upload_silo_media(card, propname, callback):
     # The provided callback must take the parameters:
     #  tmpfile path, mimetype, original media url, media description
+    with tempfile.TemporaryDirectory(prefix='SiloRider') as tmpdir:
 
-    # Upload and use forced image, if any.
-    if card.image:
-        mid = _do_upload_silo_media(card.image, None, callback)
-        if mid is not None:
-            return [mid]
-
-    # Look for media in the body of the original post.
-    media_ids = None
-    media_entries = card.entry.get(propname, [], force_list=True)
-    if media_entries:
-        media_ids = []
-        for media_entry in media_entries:
-            url, desc = _img_url_and_alt(media_entry)
-            mid = _do_upload_silo_media(url, desc, callback)
+        # Upload and use forced image, if any.
+        if card.image:
+            mid = _do_upload_silo_media(tmpdir, card.image, None, callback)
             if mid is not None:
-                media_ids.append(mid)
+                return [mid]
+
+        # Look for media in the body of the original post.
+        media_ids = None
+        media_entries = card.entry.get(propname, [], force_list=True)
+        if media_entries:
+            media_ids = []
+            for media_entry in media_entries:
+                url, desc = _img_url_and_alt(media_entry)
+                mid = _do_upload_silo_media(tmpdir, url, desc, callback)
+                if mid is not None:
+                    media_ids.append(mid)
 
     return media_ids
 
 
-def _do_upload_silo_media(url, desc, callback):
+def _do_upload_silo_media(tmpdir, url, desc, callback):
     logger.debug("Downloading %s for upload to silo..." % url)
     mt, enc = mimetypes.guess_type(url, strict=False)
     if not mt:
@@ -176,7 +183,8 @@ def _do_upload_silo_media(url, desc, callback):
     logger.debug("Got MIME type and extension: %s %s" % (mt, ext))
 
     try:
-        tmpfile, headers = urllib.request.urlretrieve(url)
+        tmpfile = os.path.join(tmpdir, str(uuid.uuid4()) + ext)
+        tmpfile, headers = urllib.request.urlretrieve(url, filename=tmpfile)
         logger.debug("Using temporary file: %s" % tmpfile)
         return callback(tmpfile, mt, url, desc)
     finally:
