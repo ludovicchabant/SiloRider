@@ -15,6 +15,7 @@ mastodon.py==1.8.1
 mf2py==1.1.2
 mf2util==0.5.2
 oauthlib==3.2.2
+Pillow==10.0.1
 python-dateutil==2.8.2
 python-magic==0.4.27
 pytz==2023.3

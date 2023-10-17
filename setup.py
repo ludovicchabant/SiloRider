@@ -16,6 +16,7 @@ install_requires = [
     'Mastodon.py>=1.3.0',
     'mf2py>=1.1.0',
     'mf2util>=0.5.0',
+    'Pillow>=10.0.1',
     'python-dateutil>=2.7.0',
     'python-facebook-api>=0.17.1',
     'python-twitter>=3.4.0',
