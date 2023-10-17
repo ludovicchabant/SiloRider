@@ -98,8 +98,8 @@ def _insert_html_datetime_published(doc, elem):
     dt_str = str(elem.string)
     try:
         dt = dateutil.parser.parse(dt_str)
-    except dateutil.parser.ParseError as err:
-        logger.error("Can't parse published date: %s" % err)
+    except dateutil.parser.ParserError as err:
+        logger.warning("Can't parse published date '%s', ignoring" % err)
         return
 
     if dt.hour == 0 and dt.minute == 0 and dt.second == 0:
