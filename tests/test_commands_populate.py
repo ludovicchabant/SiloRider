@@ -1,6 +1,6 @@
 
 feed1 = """
-<html><body>
+<html><body class="h-feed">
     <article class="h-entry">
       <h1 class="p-name">A new article</h1>
       <div class="e-content">
@@ -21,7 +21,7 @@ def test_populate(cli):
 
 
 feed2 = """
-<html><body>
+<html><body class="h-feed">
     <article class="h-entry">
       <h1 class="p-name">First article</h1>
       <div><time class="dt-published" datetime="2018-01-07T09:30:00-00:00"></time></div>
