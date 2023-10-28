@@ -44,7 +44,14 @@ class SiloAuthenticationContext(SiloContextBase):
 
 
 class SiloPostingContext(SiloContextBase):
-    pass
+    def __init__(self, exec_ctx, profile_url_handlers=None):
+        SiloContextBase.__init__(self, exec_ctx)
+        self.profile_url_handlers = profile_url_handlers
+
+
+class SiloProfileUrlHandler:
+    def handleUrl(self, text, url):
+        return None
 
 
 class Silo:
@@ -73,13 +80,19 @@ class Silo:
         return self.ctx.cache.setCustomValue(full_name, val)
 
     def formatEntry(self, entry, *args, **kwargs):
-        return format_entry(entry, *args, **kwargs)
+        return format_entry(
+                entry,
+                silo_name=self.name, silo_type=self.SILO_TYPE,
+                *args, **kwargs)
 
     def authenticate(self, ctx):
         raise NotImplementedError()
 
     def onPostStart(self, ctx):
         pass
+
+    def getProfileUrlHandler(self):
+        return None
 
     def getEntryCard(self, entry, ctx):
         raise NotImplementedError()

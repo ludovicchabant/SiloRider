@@ -33,9 +33,17 @@ class Processor:
     def process(self):
         self.preProcess()
 
+        # Get all silos to return a profile URL handler.
+        profile_url_handlers = {}
+        for silo in self.ctx.silos:
+            handler = silo.getProfileUrlHandler()
+            if handler:
+                profile_url_handlers[silo.SILO_TYPE] = handler
+
+        postctx = SiloPostingContext(self.ctx, profile_url_handlers)
         feed = parse_url(self.url, self.name, self.config)
         for entry in feed.entries:
-            self.processEntry(entry)
+            self.processEntry(postctx, entry)
 
         self.postProcess()
 
@@ -46,6 +54,8 @@ class Processor:
         if self.ctx.args.until:
             self.ctx.args.until = dateparser.parse(self.ctx.args.until)
 
+        # Go over the silos needed for this command (i.e. potentially
+        # filtered by passing `-s`) and call their `onPostStart`.
         for silo in self.silos:
             silo.onPostStart(self.ctx)
 
@@ -53,7 +63,7 @@ class Processor:
         for silo in self.silos:
             silo.onPostEnd(self.ctx)
 
-    def processEntry(self, entry):
+    def processEntry(self, postctx, entry):
         entry_url = entry.get('url')
         if not entry_url:
             logger.warning("Found entry without a URL: %s" % repr(entry._mf_entry))
@@ -63,10 +73,10 @@ class Processor:
             logger.debug("Entry is filtered out: %s" % entry_url)
             return
 
-        postctx = SiloPostingContext(self.ctx)
         no_cache = self.ctx.args.no_cache
         only_since = self.ctx.args.since
         only_until = self.ctx.args.until
+
         logger.debug("Processing entry: %s" % entry_url)
         for silo in self.silos:
             if only_since or only_until:

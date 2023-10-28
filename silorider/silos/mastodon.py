@@ -1,8 +1,9 @@
 import time
 import getpass
 import logging
+import urllib.parse
 import mastodon
-from .base import Silo
+from .base import Silo, SiloProfileUrlHandler
 from ..format import CardProps
 
 
@@ -111,6 +112,9 @@ class MastodonSilo(Silo):
             access_token=access_token,
             api_base_url=self.base_url)
 
+    def getProfileUrlHandler(self):
+        return MastodonProfileUrlHandler()
+
     def getEntryCard(self, entry, ctx):
         return self.formatEntry(
                 entry, limit=500,
@@ -146,4 +150,13 @@ class MastodonSilo(Silo):
                     tries_left -= 1
                     continue
                 raise
+
+class MastodonProfileUrlHandler(SiloProfileUrlHandler):
+    def handleUrl(self, text, raw_url):
+        url = urllib.parse.urlparse(raw_url)
+        server_url = url.netloc
+        path = url.path.lstrip('/')
+        if path.startswith('@') and '/' not in path:
+            return '@%s%s' % (path, server_url)
+        return None
 

@@ -135,7 +135,10 @@ class FacebookSilo(Silo):
             access_token=access_token)
 
     def getEntryCard(self, entry, ctx):
-        return self.formatEntry(entry, card_props=CardProps('property', 'og'))
+        return self.formatEntry(
+                entry,
+                card_props=CardProps('property', 'og'),
+                profile_url_handlers=ctx.profile_url_handlers)
 
     def mediaCallback(self, tmpfile, mt, url, desc):
         resp = self.client.post_object(

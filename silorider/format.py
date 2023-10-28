@@ -11,11 +11,19 @@ logger = logging.getLogger(__name__)
 
 _disable_get_card_info = False
 
-def format_entry(entry, *, limit=None, card_props=None,
-                 add_url='auto', url_flattener=None, url_mode=None):
+
+def format_entry(entry, *,
+                 silo_name=None, silo_type=None,
+                 limit=None, card_props=None,
+                 add_url='auto', url_flattener=None,
+                 profile_url_handlers=None, url_mode=None):
     url = entry.url
 
     ctx = HtmlStrippingContext()
+    ctx.silo_name = silo_name
+    ctx.silo_type = silo_type
+    if profile_url_handlers:
+        ctx.profile_url_handler = ProfileUrlHandler(profile_url_handlers)
     if url_flattener:
         ctx.url_flattener = url_flattener
     if url_mode is not None:
@@ -94,6 +102,19 @@ class CardInfo:
         self.is_from = from_label
 
 
+class ProfileUrlHandler:
+    def __init__(self, handlers=None):
+        self.handlers = handlers
+
+    def handleUrl(self, text, url):
+        if self.handlers:
+            for name, handler in self.handlers.items():
+                res = handler.handleUrl(text, url)
+                if res:
+                    return name, res
+        return None, None
+
+
 class UrlFlattener:
     def replaceHref(self, text, url, ctx):
         raise NotImplementedError()
@@ -117,16 +138,22 @@ URLMODE_ERASE = 3
 
 class HtmlStrippingContext:
     def __init__(self):
+        # The name and type of the silo we are working for
+        self.silo_name = None
+        self.silo_type = None
         # Mode for inserting URLs
         self.url_mode = URLMODE_LAST
-        # List of URLs to insert
-        self.urls = []
-        # Indices of URLs that should not get a leading whitespace
-        self.nosp_urls = []
+        # Object that can handle profile links
+        self.profile_url_handler = ProfileUrlHandler()
         # Object that can measure and shorten URLs
         self.url_flattener = _NullUrlFlattener()
         # Limit for how long the text can be
         self.limit = -1
+
+        # List of URLs to insert
+        self.urls = []
+        # Indices of URLs that should not get a leading whitespace
+        self.nosp_urls = []
 
         # Accumulated text length when accounting for shortened URLs
         self.text_length = 0
@@ -313,6 +340,18 @@ def _do_strip_html(elem, ctx):
         else:
             a_txt = ''.join([_do_strip_html(c, ctx)
                              for c in cnts])
+
+        # See if the URL is a link to a social media profile. If so,
+        # we will want to strip it out for any silo that isn't for
+        # that social network platform.
+        name, new_txt = ctx.profile_url_handler.handleUrl(a_txt, href)
+        if name:
+            if ctx.silo_type == name:
+                # Correct silo, return the processed text.
+                return ctx.processText(new_txt, False)
+            else:
+                # Another silo, strip the link.
+                return a_txt
 
         # Use the URL flattener to reformat the hyperlink.
         old_text_length = ctx.text_length

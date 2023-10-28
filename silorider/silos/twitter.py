@@ -2,7 +2,7 @@ import os.path
 import logging
 import tweepy
 import urllib.parse
-from .base import Silo
+from .base import Silo, SiloProfileUrlHandler
 from ..format import CardProps, UrlFlattener
 from ..parse import strip_img_alt
 
@@ -99,11 +99,15 @@ class TwitterSilo(Silo):
             access_token_key=access_key,
             access_token_secret=access_secret)
 
+    def getProfileUrlHandler(self):
+        return TwitterProfileUrlHandler()
+
     def getEntryCard(self, entry, ctx):
         return self.formatEntry(
                 entry,
                 limit=280,
                 card_props=CardProps('name', 'twitter'),
+                profile_url_handlers=ctx.profile_url_handlers,
                 url_flattener=TwitterUrlFlattener())
 
     def mediaCallback(self, tmpfile, mt, url, desc):
@@ -119,6 +123,22 @@ class TwitterSilo(Silo):
 
 
 TWITTER_NETLOCS = ['twitter.com', 'www.twitter.com']
+
+
+class TwitterProfileUrlHandler(SiloProfileUrlHandler):
+    def handleUrl(self, text, raw_url):
+        url = urllib.parse.urlparse(raw_url)
+
+        # Is it a Twitter URL?
+        if url.netloc not in TWITTER_NETLOCS:
+            return None
+
+        path = url.path.lstrip('/')
+        # Is it a profile URL?
+        if '/' not in path:
+            return '@' + path
+
+        return None
 
 
 class TwitterUrlFlattener(UrlFlattener):

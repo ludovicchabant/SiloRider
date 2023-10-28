@@ -97,6 +97,7 @@ class BlueskySilo(Silo):
             limit=300,
             # Use Twitter's meta properties
             card_props=CardProps('name', 'twitter'),
+            profile_url_handlers=ctx.profile_url_handlers,
             url_flattener=url_flattener,
             url_mode=URLMODE_ERASE)
         card.__bsky_url_flattener = url_flattener
