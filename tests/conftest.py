@@ -5,7 +5,9 @@ import re
 import logging
 import tempfile
 import pytest
+import unittest.mock
 import silorider.main
+import silorider.format
 
 
 logger = logging.getLogger(__name__)
@@ -17,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 re_feed_test_sep = re.compile(r'^---$')
+
+silorider.format._disable_get_card_info = True
 
 
 class FeedFile(pytest.File):
@@ -156,7 +160,7 @@ def feedutil():
 
 class FeedUtil:
     def makeFeed(self, *entries):
-        feed = '<html><body>\n'
+        feed = '<html><body class="h-feed">\n'
         for e in entries:
             feed += '<article class="h-entry">\n'
             feed += e

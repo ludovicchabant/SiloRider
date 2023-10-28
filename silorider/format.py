@@ -9,6 +9,7 @@ from .config import has_lxml
 
 logger = logging.getLogger(__name__)
 
+_disable_get_card_info = False
 
 def format_entry(entry, *, limit=None, card_props=None,
                  add_url='auto', url_flattener=None, url_mode=None):
@@ -24,7 +25,7 @@ def format_entry(entry, *, limit=None, card_props=None,
     card = None
 
     # See if we can use a nice blurb for articles instead of their title.
-    if card_props and not entry.is_micropost:
+    if card_props and not entry.is_micropost and not _disable_get_card_info:
          card = get_card_info(entry, card_props, ctx)
 
     # Otherwise, find the best text, generally the title of the article, or the

@@ -6,7 +6,7 @@ def mock_urllib(m):
     return m
 
 
-def _patched_urlretrieve(url):
+def _patched_urlretrieve(url, filename=None):
     return ('/retrieved/' + url.lstrip('/'), None)
 
 
