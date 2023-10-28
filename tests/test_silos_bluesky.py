@@ -64,7 +64,9 @@ def test_one_micropost_with_one_photo(cli, feedutil, bskymock, monkeypatch):
     blob = ctx.silos[0].client.blobs[0]
     assert blob == ('/retrieved/fullimg.jpg', None)
     post = ctx.silos[0].client.posts[0]
-    embed = atprotomodels.AppBskyEmbedImages.Main(images=[1])
+    assert post[1].images[0].__test_index == 0
+    embed = atprotomodels.AppBskyEmbedImages.Main(images=[
+        _make_atproto_image('/retrieved/fullimg.jpg', test_index=0)])
     assert post == ("This is a quick photo update.", embed, None)
 
 
@@ -95,7 +97,9 @@ def test_one_micropost_with_two_photos(cli, feedutil, bskymock, monkeypatch):
     blob = ctx.silos[0].client.blobs[1]
     assert blob == ('/retrieved/fullimg2.jpg', None)
     post = ctx.silos[0].client.posts[0]
-    embed = atprotomodels.AppBskyEmbedImages.Main(images=[1, 2])
+    embed = atprotomodels.AppBskyEmbedImages.Main(images=[
+        _make_atproto_image('/retrieved/fullimg1.jpg', test_index=0),
+        _make_atproto_image('/retrieved/fullimg2.jpg', test_index=1)])
     assert post == ("This is a photo update with 2 photos.", embed, None)
 
 
@@ -153,6 +157,19 @@ def bskymock():
     return BlueskyMockUtil()
 
 
+def _make_atproto_image(link, alt="", mime_type="image/jpg", size=100, test_index=None):
+    # atproto will validate models and that forces us to create
+    # an actual Image object.
+    # Not sure why we need to use model_validate here -- the simple
+    # constructor with keywords throws a validation error :(
+    blob_link = atprotomodels.blob_ref.BlobRefLink.model_validate({'$link': link})
+    blob = atprotomodels.blob_ref.BlobRef(mime_type=mime_type, ref=blob_link, size=size)
+    img = atprotomodels.AppBskyEmbedImages.Image(alt=alt, image=blob)
+    if test_index is not None:
+        img.__test_index = test_index
+    return img
+
+
 class BlueskyMock:
     def __init__(self, base_url):
         # base_url is unused here.
@@ -164,8 +181,9 @@ class BlueskyMock:
         assert password == 'TEST_PASSWORD'
 
     def upload_blob(self, tmpfile, desc):
+        img = _make_atproto_image(tmpfile, test_index=len(self.blobs))
         self.blobs.append((tmpfile, desc))
-        return len(self.blobs)
+        return img
 
     def send_post(self, text, post_datetime=None, embed=None, facets=None):
         self.posts.append((text, embed, facets))
