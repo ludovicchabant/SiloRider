@@ -56,7 +56,7 @@ def test_one_micropost_with_one_photo(cli, feedutil, bskymock, monkeypatch):
     with monkeypatch.context() as m:
         import silorider.silos.bluesky
         mock_urllib(m)
-        m.setattr(silorider.silos.bluesky.BlueskySilo, '_media_callback',
+        m.setattr(silorider.silos.bluesky.BlueskySilo, 'mediaCallback',
                   _patched_media_callback)
         ctx, _ = cli.run('process')
 
@@ -85,7 +85,7 @@ def test_one_micropost_with_two_photos(cli, feedutil, bskymock, monkeypatch):
     with monkeypatch.context() as m:
         import silorider.silos.bluesky
         mock_urllib(m)
-        m.setattr(silorider.silos.bluesky.BlueskySilo, '_media_callback',
+        m.setattr(silorider.silos.bluesky.BlueskySilo, 'mediaCallback',
                   _patched_media_callback)
         ctx, _ = cli.run('process')
 

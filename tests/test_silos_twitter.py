@@ -71,7 +71,7 @@ def test_one_micropost_with_one_photo(cli, feedutil, tweetmock, monkeypatch):
     with monkeypatch.context() as m:
         import silorider.silos.twitter
         mock_urllib(m)
-        m.setattr(silorider.silos.twitter.TwitterSilo, '_media_callback',
+        m.setattr(silorider.silos.twitter.TwitterSilo, 'mediaCallback',
                   _patched_media_callback)
         ctx, _ = cli.run('process')
 
@@ -97,7 +97,7 @@ def test_one_micropost_with_two_photos(cli, feedutil, tweetmock, monkeypatch):
     with monkeypatch.context() as m:
         import silorider.silos.twitter
         mock_urllib(m)
-        m.setattr(silorider.silos.twitter.TwitterSilo, '_media_callback',
+        m.setattr(silorider.silos.twitter.TwitterSilo, 'mediaCallback',
                   _patched_media_callback)
         ctx, _ = cli.run('process')
 
