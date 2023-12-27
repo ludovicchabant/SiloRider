@@ -5,6 +5,7 @@ import urllib.request
 import logging
 import tempfile
 import mimetypes
+from PIL import Image
 from ..format import format_entry
 
 
@@ -160,14 +161,14 @@ def load_silos(config, cache):
     return silos
 
 
-def upload_silo_media(card, propname, callback):
+def upload_silo_media(card, propname, callback, max_size=None):
     # The provided callback must take the parameters:
     #  tmpfile path, mimetype, original media url, media description
     with tempfile.TemporaryDirectory(prefix='SiloRider') as tmpdir:
 
         # Upload and use forced image, if any.
         if card.image:
-            mid = _do_upload_silo_media(tmpdir, card.image, None, callback)
+            mid = _do_upload_silo_media(tmpdir, card.image, None, callback, max_size)
             if mid is not None:
                 return [mid]
 
@@ -178,14 +179,14 @@ def upload_silo_media(card, propname, callback):
             media_ids = []
             for media_entry in media_entries:
                 url, desc = _img_url_and_alt(media_entry)
-                mid = _do_upload_silo_media(tmpdir, url, desc, callback)
+                mid = _do_upload_silo_media(tmpdir, url, desc, callback, max_size)
                 if mid is not None:
                     media_ids.append(mid)
 
     return media_ids
 
 
-def _do_upload_silo_media(tmpdir, url, desc, callback):
+def _do_upload_silo_media(tmpdir, url, desc, callback, max_size=None):
     logger.debug("Downloading %s for upload to silo..." % url)
     mt, enc = mimetypes.guess_type(url, strict=False)
     if not mt:
@@ -197,12 +198,46 @@ def _do_upload_silo_media(tmpdir, url, desc, callback):
 
     try:
         tmpfile = os.path.join(tmpdir, str(uuid.uuid4()) + ext)
+        logger.debug("Downloading photo to temporary file: %s" % tmpfile)
         tmpfile, headers = urllib.request.urlretrieve(url, filename=tmpfile)
-        logger.debug("Using temporary file: %s" % tmpfile)
+        tmpfile = _ensure_file_not_too_large(tmpfile, max_size)
         return callback(tmpfile, mt, url, desc)
     finally:
         logger.debug("Cleaning up.")
         urllib.request.urlcleanup()
+
+
+def _ensure_file_not_too_large(path, max_size):
+    if max_size is None:
+        return path
+
+    file_size = os.path.getsize(path)
+    if file_size <= max_size:
+        return path
+
+    loops = 0
+    scale = 0.75
+    path_no_ext, ext = os.path.splitext(path)
+    smaller_path = '%s_bsky%s' % (path_no_ext, ext)
+    with Image.open(path) as orig_im:
+        # Resize down 75% until we get below the size limit.
+        img_width, img_height = orig_im.size
+        while loops < 10:
+            logger.debug("Resizing '%s' by a factor of %f" % (path, scale))
+            img_width = int(img_width * scale)
+            img_height = int(img_height * scale)
+            with orig_im.resize((img_width, img_height)) as smaller_im:
+                smaller_im.save(smaller_path)
+
+            file_size = os.path.getsize(smaller_path)
+            logger.debug("Now got file size %d (max size %d)" % (file_size, max_size))
+            if file_size <= max_size:
+                return smaller_path
+
+            scale = scale * scale
+            loops += 1
+
+    raise Exception("Can't reach a small enough image to upload!")
 
 
 def _img_url_and_alt(media_entry):

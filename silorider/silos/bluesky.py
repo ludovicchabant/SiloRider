@@ -12,8 +12,6 @@ from ..format import CardProps, UrlFlattener, URLMODE_ERASE
 import atproto
 import atproto.xrpc_client.models as atprotomodels
 
-from PIL import Image
-
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +50,9 @@ class _BlueskyClient(atproto.Client):
 
 class BlueskySilo(Silo):
     SILO_TYPE = 'bluesky'
+    PHOTO_LIMIT = 976560
     _DEFAULT_SERVER = 'bsky.app'
     _CLIENT_CLASS = _BlueskyClient
-    _MAX_IMAGE_SIZE = 976560
 
     def __init__(self, ctx):
         super().__init__(ctx)
@@ -104,7 +102,6 @@ class BlueskySilo(Silo):
         return card
 
     def mediaCallback(self, tmpfile, mt, url, desc):
-        tmpfile = self._ensureFileNotTooLarge(tmpfile)
         with open(tmpfile, 'rb') as tmpfp:
             data = tmpfp.read()
 
@@ -115,34 +112,6 @@ class BlueskySilo(Silo):
         if desc is None:
             desc = ""
         return atprotomodels.AppBskyEmbedImages.Image(alt=desc, image=upload.blob)
-
-    def _ensureFileNotTooLarge(self, path):
-        file_size = os.path.getsize(path)
-        if file_size <= self._MAX_IMAGE_SIZE:
-            return path
-
-        loops = 0
-        scale = 0.75
-        path_no_ext, ext = os.path.splitext(path)
-        smaller_path = '%s_bsky%s' % (path_no_ext, ext)
-        with Image.open(path) as orig_im:
-            # Resize down 75% until we get below the size limit.
-            img_width, img_height = orig_im.size
-            while loops < 10:
-                logger.debug("Resizing '%s' by a factor of %f" % (path, scale))
-                img_width = int(img_width * scale)
-                img_height = int(img_height * scale)
-                with orig_im.resize((img_width, img_height)) as smaller_im:
-                    smaller_im.save(smaller_path)
-
-                file_size = os.path.getsize(smaller_path)
-                if file_size <= self._MAX_IMAGE_SIZE:
-                    return smaller_path
-
-                scale = scale * scale
-                loops += 1
-
-        raise Exception("Can't reach a small enough image to upload!")
 
     def postEntry(self, entry_card, media_ids, ctx):
         # Add images as an embed on the atproto record.

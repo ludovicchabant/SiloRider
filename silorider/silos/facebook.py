@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class FacebookSilo(Silo):
     SILO_TYPE = 'facebook'
+    PHOTO_LIMIT = 4000000
     _CLIENT_CLASS = pyfacebook.GraphAPI
 
     def __init__(self, ctx):

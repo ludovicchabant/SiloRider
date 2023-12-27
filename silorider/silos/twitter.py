@@ -35,6 +35,7 @@ class _CompositeClient:
 
 class TwitterSilo(Silo):
     SILO_TYPE = 'twitter'
+    PHOTO_LIMIT = 5000000
     _CLIENT_CLASS = _CompositeClient
 
     def __init__(self, ctx):
