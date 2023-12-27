@@ -89,7 +89,7 @@ def _setup_populate(parser):
     parser.add_argument(
         '--dry-run',
         action='store_true',
-        help="Only report what would be posted, but don't post anything.")
+        help="Only report what would be populated, but don't populate anything.")
     parser.set_defaults(func=_run)
 
 
