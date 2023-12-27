@@ -1,5 +1,6 @@
+import os.path
 import pytest
-import atproto.xrpc_client.models as atprotomodels
+from atproto import models as atprotomodels
 from .mockutil import mock_urllib
 
 
@@ -20,8 +21,10 @@ def test_one_article(cli, feedutil, bskymock):
     ctx, _ = cli.run('process')
     assert ctx.cache.wasPosted('test', 'https://example.org/a-new-article')
     post = ctx.silos[0].client.posts[0]
-    assert post == ('A new article https://example.org/a-new-article',
-                    None, None)
+    assert post == (
+        'A new article https://example.org/a-new-article',
+        None,
+        [_make_link_facet('https://example.org/a-new-article', 14, 47)])
 
 
 def test_one_micropost(cli, feedutil, bskymock):
@@ -56,6 +59,7 @@ def test_one_micropost_with_one_photo(cli, feedutil, bskymock, monkeypatch):
     with monkeypatch.context() as m:
         import silorider.silos.bluesky
         mock_urllib(m)
+        m.setattr(os.path, 'getsize', lambda path: 42)
         m.setattr(silorider.silos.bluesky.BlueskySilo, 'mediaCallback',
                   _patched_media_callback)
         ctx, _ = cli.run('process')
@@ -87,6 +91,7 @@ def test_one_micropost_with_two_photos(cli, feedutil, bskymock, monkeypatch):
     with monkeypatch.context() as m:
         import silorider.silos.bluesky
         mock_urllib(m)
+        m.setattr(os.path, 'getsize', lambda path: 42)
         m.setattr(silorider.silos.bluesky.BlueskySilo, 'mediaCallback',
                   _patched_media_callback)
         ctx, _ = cli.run('process')
@@ -162,7 +167,7 @@ def _make_atproto_image(link, alt="", mime_type="image/jpg", size=100, test_inde
     # an actual Image object.
     # Not sure why we need to use model_validate here -- the simple
     # constructor with keywords throws a validation error :(
-    blob_link = atprotomodels.blob_ref.BlobRefLink.model_validate({'$link': link})
+    blob_link = atprotomodels.blob_ref.IpldLink.model_validate({'$link': link})
     blob = atprotomodels.blob_ref.BlobRef(mime_type=mime_type, ref=blob_link, size=size)
     img = atprotomodels.AppBskyEmbedImages.Image(alt=alt, image=blob)
     if test_index is not None:

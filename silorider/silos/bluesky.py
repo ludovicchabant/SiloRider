@@ -10,7 +10,7 @@ from .base import Silo
 from ..format import CardProps, UrlFlattener, URLMODE_ERASE
 
 import atproto
-import atproto.xrpc_client.models as atprotomodels
+from atproto import models as atprotomodels
 
 
 logger = logging.getLogger(__name__)
