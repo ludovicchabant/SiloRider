@@ -93,6 +93,28 @@ def _setup_populate(parser):
     parser.set_defaults(func=_run)
 
 
+def _setup_forget(parser):
+    def _run(ctx):
+        from .commands.utils import forget_cache
+        forget_cache(ctx)
+
+    parser.add_argument(
+        '-s', '--silo',
+        action='append',
+        help="Only froget entries from the given silo(s).")
+    parser.add_argument(
+        '--since',
+        help="The date after which to forget entries from the cache (excluded).")
+    parser.add_argument(
+        '--until',
+        help="The date until which to forget entries from the cache (excluded).")
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help="Only report what would be forgotten, but don't forget anything.")
+    parser.set_defaults(func=_run)
+
+
 commands = {
     'auth': {
         'help': "Authenticate with a silo service.",
@@ -105,6 +127,10 @@ commands = {
     'populate': {
         'help': "Populates the cache with the latest entries from a feed.",
         'setup': _setup_populate,
+    },
+    'forget': {
+        'help': "Forget entries from the cache, so they can be reposted.",
+        'setup': _setup_forget,
     }
 }
 

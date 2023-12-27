@@ -87,3 +87,19 @@ def _populate_cache_for_url(name, url, ctx, until_dt=None):
                 ctx.cache.addPost(silo.name, entry_url)
             else:
                 logger.debug("Would add entry to '%s' cache: %s" % (silo.name, entry_url))
+
+
+def forget_cache(ctx):
+    named_urls = get_named_urls(ctx.config, ctx.args.url)
+
+    since_dt = None
+    until_dt = None
+    if ctx.args.since:
+        since_dt = dateutil.parser.parse(ctx.args.since)
+        logger.debug("Forgetting cached entries since: %s" % since_dt)
+        since_dt = since_dt.timestamp()
+    if ctx.args.until:
+        until_dt = dateutil.parser.parse(ctx.args.until)
+        logger.debug("Forgetting cached entries until: %s" % until_dt)
+        until_dt = until_dt.timestamp()
+
