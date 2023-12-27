@@ -31,11 +31,11 @@ class Processor:
         return self._silos
 
     def process(self):
-        self.preProcess()
+        ok_silos = self.preProcess()
 
         # Get all silos to return a profile URL handler.
         profile_url_handlers = {}
-        for silo in self.ctx.silos:
+        for silo in ok_silos:
             handler = silo.getProfileUrlHandler()
             if handler:
                 profile_url_handlers[silo.SILO_TYPE] = handler
@@ -43,9 +43,9 @@ class Processor:
         postctx = SiloPostingContext(self.ctx, profile_url_handlers)
         feed = parse_url(self.url, self.name, self.config)
         for entry in feed.entries:
-            self.processEntry(postctx, entry)
+            self.processEntry(ok_silos, postctx, entry)
 
-        self.postProcess()
+        self.postProcess(ok_silos)
 
     def preProcess(self):
         # Pre-parse the "since" and "until" dates/times.
@@ -56,14 +56,21 @@ class Processor:
 
         # Go over the silos needed for this command (i.e. potentially
         # filtered by passing `-s`) and call their `onPostStart`.
+        ok_silos = []
         for silo in self.silos:
-            silo.onPostStart(self.ctx)
+            try:
+                silo.onPostStart(self.ctx)
+                ok_silos.append(silo)
+            except Exception as ex:
+                logger.error("Error during pre-process of silo '%s'" % silo.name)
+                logger.error(ex)
+        return ok_silos
 
-    def postProcess(self):
-        for silo in self.silos:
+    def postProcess(self, silos):
+        for silo in silos:
             silo.onPostEnd(self.ctx)
 
-    def processEntry(self, postctx, entry):
+    def processEntry(self, silos, postctx, entry):
         entry_url = entry.get('url')
         if not entry_url:
             logger.warning("Found entry without a URL: %s" % repr(entry._mf_entry))
@@ -78,7 +85,7 @@ class Processor:
         only_until = self.ctx.args.until
 
         logger.debug("Processing entry: %s" % entry_url)
-        for silo in self.silos:
+        for silo in silos:
             if only_since or only_until:
                 entry_dt = entry.get('published')
                 if not entry_dt:
