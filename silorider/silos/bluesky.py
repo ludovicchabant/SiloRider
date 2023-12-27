@@ -175,3 +175,7 @@ class BlueskyUrlFlattener(UrlFlattener):
 
     def measureUrl(self, url):
         return len(url)
+
+    def reset(self):
+        self.urls = []
+

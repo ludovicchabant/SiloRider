@@ -74,6 +74,7 @@ def format_entry(entry, *,
                 ctx.limit = limit
                 if url_flattener:
                     ctx.url_flattener = url_flattener
+                    url_flattener.reset()
                 card.text = get_best_text(entry, ctx)
             else:
                 # We need to shorten the blurb! We can't do much else besides
@@ -81,7 +82,12 @@ def format_entry(entry, *,
                 card.text = card.text[:limit]
 
     # Actually add the url to the original post now.
+    # We pass it through the URL flattener in case it needs to do extra
+    # stuff with it (for instance the Bluesky silo will remember the
+    # byte offsets to insert a hyperlink).
     if do_add_url and url:
+        ctx.reportAddedText(1)
+        url = _process_end_url(url, ctx)
         card.text += ' ' + url
     return card
 
@@ -122,6 +128,9 @@ class UrlFlattener:
     def measureUrl(self, url):
         raise NotImplementedError()
 
+    def reset(self):
+        pass
+
 
 class _NullUrlFlattener(UrlFlattener):
     def replaceHref(self, text, url, ctx):
@@ -156,35 +165,55 @@ class HtmlStrippingContext:
         self.nosp_urls = []
 
         # Accumulated text length when accounting for shortened URLs
-        self.text_length = 0
+        self._text_length = 0
         # Same, but computed in bytes, as per UTF8 encoding
-        self.byte_length = 0
+        self._byte_length = 0
         # Whether limit was reached
-        self.limit_reached = False
+        self._limit_reached = False
+
+    @property
+    def text_length(self):
+        return self._text_length
+
+    @property
+    def byte_length(self):
+        return self._byte_length
+
+    @property
+    def limit_reached(self):
+        return self._limit_reached
 
     def processText(self, txt, allow_shorten=True):
         added_len = len(txt)
-        next_text_length = self.text_length + added_len
+        next_text_length = self._text_length + added_len
         if self.limit <= 0 or next_text_length <= self.limit:
-            self.text_length = next_text_length
-            self.byte_length += len(txt.encode())
+            self._text_length = next_text_length
+            self._byte_length += len(txt.encode())
             return txt
 
         if allow_shorten:
-            max_allowed = self.limit - self.text_length
+            max_allowed = self.limit - self._text_length
             short_txt = textwrap.shorten(
                 txt,
                 width=max_allowed,
                 expand_tabs=False,
                 replace_whitespace=False,
                 placeholder="...")
-            self.text_length += len(short_txt)
-            self.byte_length += len(short_txt.encode())
-            self.limit_reached = True
+            self._text_length += len(short_txt)
+            self._byte_length += len(short_txt.encode())
+            self._limit_reached = True
             return short_txt
         else:
-            self.limit_reached = True
+            self._limit_reached = True
             return ''
+
+    def reportSetText(self, charlen, bytelen=None):
+        self._text_length = charlen
+        self._byte_length = bytelen if bytelen is not None else charlen
+
+    def reportAddedText(self, added_chars, added_bytes=None):
+        self._text_length += added_chars
+        self._byte_length += added_bytes if added_bytes is not None else added_chars
 
 
 def get_best_text(entry, ctx=None, *, plain=True):
@@ -220,7 +249,7 @@ def get_card_info(entry, card_props, ctx):
 
     if desc:
         logger.debug("Found card info, description: %s (image: %s)" % (desc, img))
-        ctx.text_length = len(desc)
+        ctx.reportSetText(len(desc), len(desc.encode('utf8')))
         return CardInfo(entry, desc, img, 'card')
     return None
 
@@ -261,7 +290,7 @@ def strip_html(bs_elem, ctx=None):
             #       too long because of this, but that's desirable.
             if outtxt[-1] not in string.whitespace:
                 outtxt += ' '
-            outtxt += ' '.join(ctx.urls)
+            outtxt += ' '.join([_process_end_url(url, ctx) for url in ctx.urls])
         elif ctx.url_mode == URLMODE_BOTTOM_LIST:
             # If the last character of the text is a whitespace, replace
             # it with a newline.
@@ -271,28 +300,31 @@ def strip_html(bs_elem, ctx=None):
                 outtxt = outtxt[:-1] + '\n'
             else:
                 outtxt += '\n'
-            outtxt += '\n'.join(ctx.urls)
+            outtxt += '\n'.join([_process_end_url(url, ctx) for url in ctx.urls])
     # else, if url_mode is URLMODE_ERASE, don't do anything: we have
     # removed the markers and don't need to add the URLs anywhere.
+    # TODO: if using URLMODE_INLINE we don't process the URLs via the flatterners
 
     if ctx.url_mode != URLMODE_ERASE:
         # Add the length of URLs to the text length.
         for url in ctx.urls:
             url_len = ctx.url_flattener.measureUrl(url)
-            ctx.text_length += url_len
-            ctx.byte_length += url_len
+            ctx.reportAddedText(url_len)
         # Add spaces and other extra characters to the text length.
         if ctx.url_mode == URLMODE_INLINE:
             # One space per URL except the explicitly no-space-urls.
             added_spaces = len(ctx.urls) - len(ctx.nosp_urls)
-            ctx.text_length += added_spaces
-            ctx.byte_length += added_spaces
+            ctx.reportAddedText(added_spaces)
         else:
             # One space or newline per URL.
             added_spaces = len(ctx.urls)
-            ctx.text_length += added_spaces
-            ctx.byte_length += added_spaces
+            ctx.reportAddedText(added_spaces)
     return outtxt
+
+
+def _process_end_url(url, ctx):
+    new_url = ctx.url_flattener.replaceHref(url, url, ctx)
+    return new_url if new_url is not None else url
 
 
 def _escape_percents(txt):
@@ -354,15 +386,10 @@ def _do_strip_html(elem, ctx):
                 return a_txt
 
         # Use the URL flattener to reformat the hyperlink.
-        old_text_length = ctx.text_length
         href_flattened = ctx.url_flattener.replaceHref(a_txt, href, ctx)
         if href_flattened is not None:
-            # We have a reformatted URL. Use that, but check if the
-            # flattener computed a custom text length. If not, do the
-            # standard computation.
-            if ctx.text_length == old_text_length:
-                return ctx.processText(href_flattened, False)
-            return href_flattened
+            # We have a reformatted URL, use that.
+            return ctx.processText(href_flattened, False)
 
         # If we have a simple hyperlink where the text is a substring of
         # the target URL, just return the URL.
