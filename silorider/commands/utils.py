@@ -64,7 +64,7 @@ def _populate_cache_for_url(name, url, ctx, until_dt=None):
         if until_dt:
             entry_published = entry.get('published')
             if not entry_published:
-                logger.warning("Entry '%s' has not published date." %
+                logger.warning("Entry '%s' has no published date." %
                                entry_url)
                 continue
 
