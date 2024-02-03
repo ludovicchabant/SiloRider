@@ -1,3 +1,4 @@
+import json
 import logging
 import requests
 import pyfacebook
@@ -142,12 +143,12 @@ class FacebookSilo(Silo):
                 profile_url_handlers=ctx.profile_url_handlers)
 
     def mediaCallback(self, tmpfile, mt, url, desc):
-        resp = self.client.post_object(
-            object_id=self.page_id,
-            connection='photos',
-            data={
-                'url': url, 'caption': desc,
-                'published': False, 'temporary': True})
+        with open(tmpfile, 'rb') as fp:
+            resp = self.client.post_object(
+                object_id=self.page_id,
+                connection='photos',
+                files={tmpfile: fp},
+                data={'caption': desc, 'published': False})
         logger.debug("Uploaded photo '%s' as object: %s" % (url, resp))
         return resp['id']
 
@@ -157,7 +158,10 @@ class FacebookSilo(Silo):
             attached_media = []
             for media_id in media_ids:
                 attached_media.append({"media_fbid": media_id})
-            data['attached_media'] = attached_media
+            # Very bad: it looks like pyfacebook doesn't deep-JSONify
+            # things inside the data dictionary. So facebook returns
+            # an error code if we don't JSONify this array ourselves.
+            data['attached_media'] = json.dumps(attached_media)
 
         logger.debug("Posting Facebook update: %s" % entry_card.text)
         logger.debug("Using data: %s" % data)
@@ -165,6 +169,6 @@ class FacebookSilo(Silo):
         resp = self.client.post_object(
             object_id=self.page_id,
             connection='feed',
-            data={'message': entry_card.text})
+            data=data)
         logger.debug("Posted as object: %s" % resp)
 
