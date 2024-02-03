@@ -122,9 +122,10 @@ class Processor:
                 continue
 
             media_callback = silo.mediaCallback
+            max_size = getattr(silo, 'PHOTO_LIMIT', None)
             if self.ctx.args.dry_run:
                 media_callback = silo.dryRunMediaCallback
-            max_size = getattr(silo, 'PHOTO_LIMIT', None)
+                max_size = None
             media_ids = upload_silo_media(entry_card, 'photo', media_callback, max_size)
 
             if not self.ctx.args.dry_run:
