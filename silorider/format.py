@@ -86,9 +86,10 @@ def format_entry(entry, *,
     # stuff with it (for instance the Bluesky silo will remember the
     # byte offsets to insert a hyperlink).
     if do_add_url and url:
-        ctx.reportAddedText(1)
         url = _process_end_url(url, ctx)
         card.text += ' ' + url
+        url_len = ctx.url_flattener.measureUrl(url)
+        ctx.reportAddedText(1 + url_len)
     return card
 
 
@@ -368,7 +369,7 @@ def _do_strip_html(elem, ctx):
         # Get the text under the hyperlink.
         cnts = list(elem.contents)
         if len(cnts) == 1:
-            a_txt = cnts[0].string
+            a_txt = _escape_percents(cnts[0].string)
         else:
             a_txt = ''.join([_do_strip_html(c, ctx)
                              for c in cnts])
@@ -416,17 +417,18 @@ def _do_strip_html(elem, ctx):
         outtxt = ''
         for i, c in enumerate(elem.children):
             if c.name == 'li':
-                outtxt += ('%s. ' % (i + 1)) + _do_strip_html(c, ctx)
-                outtxt += '\n'
-        return ctx.processText(outtxt)
+                ol_prefix = ('%s. ' % (i + 1))
+                outtxt += ol_prefix + _do_strip_html(c, ctx) + '\n'
+                ctx.reportAddedText(ol_prefix + 1)
+        return outtxt
 
     if elem.name == 'ul':
         outtxt = ''
         for c in elem.children:
             if c.name == 'li':
-                outtxt += '- ' + _do_strip_html(c, ctx)
-                outtxt += '\n'
-        return ctx.processText(outtxt)
+                outtxt += '- ' + _do_strip_html(c, ctx) + '\n'
+                ctx.reportAddedText(3)
+        return outtxt
 
     if elem.name == 'p':
         # Add a newline before starting a paragraph only if this isn't
@@ -434,6 +436,7 @@ def _do_strip_html(elem, ctx):
         p_txt = ''
         if ctx.text_length > 0:
             p_txt = '\n'
+            ctx.reportAddedText(1)
         for c in elem.children:
             p_txt += _do_strip_html(c, ctx)
         return p_txt
