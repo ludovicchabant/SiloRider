@@ -20,7 +20,9 @@ Supported Silos
 Right now, the following silos are supported:
 
 - `Mastodon`_: an open, federated social network and microblogging service.
+- `Bluesky`_: an open, federated social network and microblogging service.
 - `Twitter`_: a proprietary social network and microblogging service.
+- `Facebook`_: a proprietary social network and microblogging service.
 - Print: a debug silo that just prints entries in the console.
 
 
